@@ -45,3 +45,34 @@ body {
   color: #475569;
   font-size: 0.85rem;
 }
+
+.qti-prompt pre {
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  background: #0f172a;
+  color: #e5e7eb;
+  overflow-x: auto;
+  line-height: 1.55;
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9rem;
+}
+
+.qti-prompt pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+}
+
+.qti-prompt :not(pre) > code,
+.qti-prompt p code,
+.qti-prompt li code {
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.35rem;
+  background: #e5e7eb;
+  color: #0f172a;
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}

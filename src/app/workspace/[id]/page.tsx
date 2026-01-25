@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import JSZip from "jszip";
 import { QtiWorkspace } from "@/types/qti";
+import { highlightCodeBlocks } from "@/utils/highlight";
 import {
   QtiItem,
   QtiResult,
@@ -27,6 +28,7 @@ export default function WorkspacePage() {
   const [workspace, setWorkspace] = useState<QtiWorkspace | null>(null);
   const [items, setItems] = useState<QtiItem[]>([]);
   const [results, setResults] = useState<QtiResult[]>([]);
+  const pageRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -99,6 +101,11 @@ export default function WorkspacePage() {
     };
     load();
   }, [id]);
+
+  useEffect(() => {
+    if (loading || !pageRef.current) return;
+    highlightCodeBlocks(pageRef.current);
+  }, [loading, items, currentIndex]);
 
   const currentResult = results[currentIndex];
 
@@ -310,7 +317,7 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div ref={pageRef} className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
         <header className="text-center mb-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">QTI 3.0 採点システム</h1>
