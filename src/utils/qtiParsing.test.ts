@@ -169,6 +169,53 @@ describe('parseQtiItemXml', () => {
     expect(item.promptHtml).toContain('qti-blank');
   });
 
+  it('parses explanation from modal feedback', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-expl" title="With Explanation" adaptive="false" time-dependent="false">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
+  <qti-outcome-declaration identifier="FEEDBACK" cardinality="single" base-type="identifier"/>
+  <qti-response-processing>
+    <qti-set-outcome-value identifier="FEEDBACK">
+      <qti-base-value base-type="identifier">EXPLANATION</qti-base-value>
+    </qti-set-outcome-value>
+  </qti-response-processing>
+  <qti-item-body>
+    <qti-p>Explain the answer.</qti-p>
+    <qti-extended-text-interaction response-identifier="RESPONSE"/>
+  </qti-item-body>
+  <qti-modal-feedback outcome-identifier="FEEDBACK" identifier="EXPLANATION" show-hide="show">
+    <qti-content-body>
+      <qti-p>This is the explanation.</qti-p>
+      <qti-ul>
+        <qti-li>Point A</qti-li>
+      </qti-ul>
+    </qti-content-body>
+  </qti-modal-feedback>
+</qti-assessment-item>`;
+    const item = parseQtiItemXml(xml);
+    expect(item.candidateExplanationHtml).not.toBeNull();
+    const explanationHtml = item.candidateExplanationHtml ?? '';
+    expect(explanationHtml).toContain('<p>This is the explanation.</p>');
+    expect(explanationHtml).toContain('<li>Point A</li>');
+    expect(item.promptHtml).not.toContain('This is the explanation.');
+  });
+
+  it('does not parse explanation from candidate rubric block', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-rubric-expl" title="Candidate Rubric" adaptive="false" time-dependent="false">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
+  <qti-item-body>
+    <qti-p>Prompt</qti-p>
+    <qti-rubric-block view="candidate">
+      <qti-p>Legacy explanation</qti-p>
+    </qti-rubric-block>
+  </qti-item-body>
+</qti-assessment-item>`;
+    const item = parseQtiItemXml(xml);
+    expect(item.candidateExplanationHtml).toBeNull();
+    expect(item.promptHtml).not.toContain('Legacy explanation');
+  });
+
   it('renders all mapped QTI flow elements', () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-flow" title="Flow" adaptive="false" time-dependent="false">

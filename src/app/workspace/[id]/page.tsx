@@ -104,8 +104,18 @@ export default function WorkspacePage() {
 
   useEffect(() => {
     if (loading || !pageRef.current) return;
-    highlightCodeBlocks(pageRef.current);
-  }, [loading, items, currentIndex]);
+    const root = pageRef.current;
+    const runHighlight = () => highlightCodeBlocks(root);
+
+    runHighlight();
+
+    const observer = new MutationObserver(() => {
+      runHighlight();
+    });
+    observer.observe(root, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, [loading]);
 
   const currentResult = results[currentIndex];
 

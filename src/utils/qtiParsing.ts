@@ -81,12 +81,27 @@ const parseRubric = (itemBody: Element): QtiRubricCriterion[] => {
   return criteria;
 };
 
-const parseCandidateExplanation = (itemBody: Element): string | null => {
-  const rubricBlocks = getElementsByLocalName(itemBody, 'qti-rubric-block');
-  const candidate = rubricBlocks.find((block) => block.getAttribute('view') === 'candidate');
-  if (!candidate) return null;
-  const parts = getElementsByLocalName(candidate, 'qti-p').map((p) => renderNode(p));
-  return parts.join('');
+const parseCandidateExplanation = (root: Element): string | null => {
+  const modalFeedbacks = getElementsByLocalName(root, 'qti-modal-feedback');
+  const explanationFeedback =
+    modalFeedbacks.find(
+      (feedback) =>
+        feedback.getAttribute('identifier') === 'EXPLANATION' &&
+        feedback.getAttribute('outcome-identifier') === 'FEEDBACK'
+    ) ??
+    modalFeedbacks.find((feedback) => feedback.getAttribute('identifier') === 'EXPLANATION');
+  if (explanationFeedback) {
+    const contentBody = getElementsByLocalName(explanationFeedback, 'qti-content-body')[0];
+    if (contentBody) {
+      const explanationNodes = Array.from(contentBody.childNodes).filter(
+        (node) => node.nodeType !== Node.TEXT_NODE || (node.textContent?.trim() ?? '') !== ''
+      );
+      return explanationNodes
+        .map((node) => renderNode(node))
+        .join('');
+    }
+  }
+  return null;
 };
 
 const renderNode = (node: Node, blankCounter?: { value: number }): string => {
@@ -217,7 +232,7 @@ export const parseQtiItemXml = (xml: string): QtiItem => {
     }
   }
   const rubric = parseRubric(itemBody);
-  const candidateExplanationHtml = parseCandidateExplanation(itemBody);
+  const candidateExplanationHtml = parseCandidateExplanation(root);
 
   return {
     identifier,
