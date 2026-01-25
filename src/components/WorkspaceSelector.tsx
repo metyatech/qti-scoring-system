@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { WorkspaceSummary } from '@/types/forms';
-import FileReimportButton from './FileReimportButton';
+import { QtiWorkspaceSummary } from '@/types/qti';
 
 interface WorkspaceSelectorProps {
     onSelectWorkspace: (workspaceId: string) => void;
@@ -10,14 +9,12 @@ interface WorkspaceSelectorProps {
 }
 
 export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: WorkspaceSelectorProps) {
-    const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
+    const [workspaces, setWorkspaces] = useState<QtiWorkspaceSummary[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [expandedWorkspaces, setExpandedWorkspaces] = useState<Set<string>>(new Set());
     const [editingWorkspace, setEditingWorkspace] = useState<string | null>(null);
     const [editForm, setEditForm] = useState({ name: '', description: '' });
-    const [reimportingWorkspace, setReimportingWorkspace] = useState<string | null>(null);
-    const [reimportError, setReimportError] = useState<string | null>(null);
 
     useEffect(() => {
         loadWorkspaces();
@@ -76,7 +73,7 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
         });
     };
 
-    const startEditWorkspace = (workspace: WorkspaceSummary) => {
+    const startEditWorkspace = (workspace: QtiWorkspaceSummary) => {
         setEditingWorkspace(workspace.id);
         setEditForm({
             name: workspace.name,
@@ -120,46 +117,6 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
         }
     };
 
-    const handleFileReimport = async (workspaceId: string, file: File) => {
-        setReimportingWorkspace(workspaceId);
-        setReimportError(null);
-
-        try {
-            // ファイルを解析
-            const { parseFormsExcel } = await import('@/utils/excelParser');
-            const newData = await parseFormsExcel(file);
-
-            // 再インポートAPIを呼び出し
-            const response = await fetch(`/api/workspaces/${workspaceId}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    newData: newData,
-                    fileName: file.name,
-                }),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                alert(`データの再インポートが完了しました\n${JSON.stringify(result.details, null, 2)}`);
-                loadWorkspaces(); // ワークスペース一覧を再読み込み
-            } else {
-                let errorMessage = result.error || 'データの再インポートに失敗しました';
-                if (result.details && Array.isArray(result.details)) {
-                    errorMessage += '\n\n詳細:\n' + result.details.join('\n');
-                }
-                setReimportError(errorMessage);
-            }
-        } catch (error) {
-            console.error('ファイル再インポートエラー:', error);
-            setReimportError('ファイルの処理に失敗しました');
-        } finally {
-            setReimportingWorkspace(null);
-        }
-    };
 
     if (loading) {
         return (
@@ -173,10 +130,10 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
         <div className="max-w-4xl mx-auto p-6">
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                    アンケート採点システム（Forms / Track Training 対応）
+                    QTI 3.0 採点システム
                 </h1>
                 <p className="text-gray-600">
-                    ワークスペースを選択するか、新しいワークスペースを作成してください（Microsoft Forms または Track Training のデータを読み込めます）
+                    ワークスペースを選択するか、新しいワークスペースを作成してください（QTI 3.0 item / Results Reporting 対応）
                 </p>
             </div>
 
@@ -185,19 +142,6 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
                     <div className="text-red-800">{error}</div>
                     <button
                         onClick={() => setError(null)}
-                        className="mt-2 text-sm text-red-600 underline"
-                    >
-                        閉じる
-                    </button>
-                </div>
-            )}
-
-            {reimportError && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="text-red-800 font-medium">再インポートエラー</div>
-                    <div className="text-red-600 text-sm mt-1 whitespace-pre-line">{reimportError}</div>
-                    <button
-                        onClick={() => setReimportError(null)}
                         className="mt-2 text-sm text-red-600 underline"
                     >
                         閉じる
@@ -290,10 +234,9 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
                                                 {expandedWorkspaces.has(workspace.id) && (
                                                     <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded mt-2">
                                                         <div className="grid grid-cols-2 gap-2">
-                                                            <span>📊 回答者: {workspace.totalResponses}名</span>
-                                                            <span>📝 問題: {workspace.totalQuestions}問</span>
+                                                            <span>🧩 Items: {workspace.itemCount}件</span>
+                                                            <span>📄 Results: {workspace.resultCount}件</span>
                                                             <span>📅 作成日: {new Date(workspace.createdAt).toLocaleDateString('ja-JP')}</span>
-                                                            <span className="text-gray-400">📁 ファイル: {workspace.fileName}</span>
                                                         </div>
                                                     </div>
                                                 )}
@@ -314,12 +257,6 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
                                             >
                                                 編集
                                             </button>
-                                            <FileReimportButton
-                                                workspaceId={workspace.id}
-                                                workspaceName={workspace.name}
-                                                onReimport={handleFileReimport}
-                                                isLoading={reimportingWorkspace === workspace.id}
-                                            />
                                             <button
                                                 onClick={() => handleDeleteWorkspace(workspace.id, workspace.name)}
                                                 className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"

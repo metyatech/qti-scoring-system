@@ -1,18 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import FileUpload from '@/components/FileUpload';
+import QtiUpload from '@/components/QtiUpload';
 
 export default function NewWorkspacePage() {
     const router = useRouter();
 
-    const handleWorkspaceCreated = (workspaceId: string, isTrackTraining: boolean) => {
-        // Track Training の場合は問題文設定から開始、それ以外は詳細ページへ
-        if (isTrackTraining) {
-            router.push(`/workspace/${workspaceId}/question-settings`);
-        } else {
-            router.push(`/workspace/${workspaceId}`);
-        }
+    const handleWorkspaceCreated = (workspaceId: string) => {
+        router.push(`/workspace/${workspaceId}`);
     };
 
     return (
@@ -28,7 +23,7 @@ export default function NewWorkspacePage() {
                     </button>
                 </div>
 
-                <FileUpload onWorkspaceCreated={handleWorkspaceCreated} />
+                <QtiUpload onWorkspaceCreated={handleWorkspaceCreated} />
             </div>
         </div>
     );

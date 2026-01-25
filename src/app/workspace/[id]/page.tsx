@@ -1,195 +1,475 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import JSZip from "jszip";
+import { QtiWorkspace } from "@/types/qti";
+import {
+  QtiItem,
+  QtiResult,
+  parseMappingCsv,
+  parseQtiItemXml,
+  parseQtiResultsXml,
+} from "@/utils/qtiParsing";
 
-// 人ごと表示（採点対応）
-import PersonView from "@/components/PersonView";
-import QuestionView from "@/components/QuestionView";
-import ScoreSheetFill from "@/components/ScoreSheetFill";
-import { ParsedFormsData, ScoringWorkspace } from "@/types/forms";
-import { exportAllAsZip } from "@/utils/exportScores";
+type Mapping = {
+  resultToItem: Map<string, string>;
+  itemToResult: Map<string, string>;
+};
+
+const fetchFileText = async (workspaceId: string, kind: string, name: string) => {
+  const res = await fetch(`/api/workspaces/${workspaceId}/files?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}`);
+  if (!res.ok) {
+    throw new Error(`ファイル取得に失敗: ${name}`);
+  }
+  return await res.text();
+};
 
 export default function WorkspacePage() {
-    const { id } = useParams<{ id: string }>();
-    const router = useRouter();
-    const [formsData, setFormsData] = useState<ParsedFormsData | null>(null);
-    const [currentWorkspace, setCurrentWorkspace] = useState<ScoringWorkspace | null>(null);
-    const [viewMode, setViewMode] = useState<"question" | "person">("question");
-    const [questionFocusIndex, setQuestionFocusIndex] = useState<number>(0);
-    const [openScoreSheet, setOpenScoreSheet] = useState(false);
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const [workspace, setWorkspace] = useState<QtiWorkspace | null>(null);
+  const [items, setItems] = useState<QtiItem[]>([]);
+  const [results, setResults] = useState<QtiResult[]>([]);
+  const [mapping, setMapping] = useState<Mapping | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showBasicInfo, setShowBasicInfo] = useState(false);
+  const [loopMessage, setLoopMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        if (id) {
-            fetch(`/api/workspaces/${id}`)
-                .then((res) => res.json())
-                .then((result) => {
-                    if (result.success) {
-                        setCurrentWorkspace(result.workspace);
-                        setFormsData(result.workspace.formsData);
-                    }
-                });
+  useEffect(() => {
+    if (!id) return;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const wsRes = await fetch(`/api/workspaces/${id}`);
+        const wsJson = await wsRes.json();
+        if (!wsRes.ok || !wsJson.success) {
+          throw new Error(wsJson.error || "ワークスペースの読み込みに失敗しました");
         }
-    }, [id]);
+        const ws: QtiWorkspace = wsJson.workspace;
+        setWorkspace(ws);
 
-    // 最新コメントを保持（再レンダー不要のためref）
-    const commentsRef = useRef<Record<number, Record<number, string>>>({});
+        const mappingText = await fetchFileText(ws.id, "mapping", ws.mappingFile);
+        const mappingParsed = parseMappingCsv(mappingText);
+        setMapping(mappingParsed);
 
-    return (
-        <div className="min-h-screen bg-gray-50 py-8">
-            <div className="container mx-auto px-4">
-                <header className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-800 mb-2">アンケート採点システム（Forms / Track Training 対応）</h1>
-                    {currentWorkspace && <p className="text-gray-600">ワークスペース: {currentWorkspace.name}</p>}
-                </header>
-                {formsData && (
-                    <div>
-                        <div className="flex justify-center items-center gap-4 mb-6">
-                            <button
-                                onClick={() => router.push("/")}
-                                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-                            >
-                                ワークスペース一覧に戻る
-                            </button>
-                            <button
-                                onClick={() => router.push(`/workspace/${id}/scoring-criteria`)}
-                                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-                            >
-                                採点基準設定
-                            </button>
-                            <button
-                                onClick={() => router.push(`/workspace/${id}/question-settings`)}
-                                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
-                            >
-                                問題文設定
-                            </button>
-                            {currentWorkspace && (
-                                <button
-                                    onClick={() => setOpenScoreSheet(true)}
-                                    className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors"
-                                >
-                                    点数シートに記入
-                                </button>
-                            )}
-                            <button
-                                onClick={() => {
-                                    if (!currentWorkspace) return;
-                                    // 最新コメント(ref) を反映したワークスペースを組み立て（state更新は不要）
-                                    const ws: ScoringWorkspace = {
-                                        ...currentWorkspace,
-                                        comments: ({ ...currentWorkspace.comments, ...commentsRef.current })
-                                    } as ScoringWorkspace;
-                                    const data = ws.formsData;
-                                    // 未設定の最初の問題を探索
-                                    let firstNoCriteria = -1;
-                                    for (let i = 0; i < data.questions.length; i++) {
-                                        const has = ws.scoringCriteria && ws.scoringCriteria[i] && ws.scoringCriteria[i].criteria && ws.scoringCriteria[i].criteria.length > 0;
-                                        if (!has) { firstNoCriteria = i; break; }
-                                    }
-                                    if (firstNoCriteria >= 0) {
-                                        // 問題ごと表示へ切り替え＆該当問題へ移動
-                                        setViewMode("question");
-                                        setQuestionFocusIndex(firstNoCriteria);
-                                        const title = (ws.questionTitles && ws.questionTitles[firstNoCriteria]) || data.questions[firstNoCriteria];
-                                        const ok = window.confirm(`問題${firstNoCriteria + 1}（${title}）に採点基準が設定されていません。\nそれでもエクスポートを実行しますか？`);
-                                        if (!ok) return;
-                                    }
+        const itemTexts = await Promise.all(
+          ws.itemFiles.map((name) => fetchFileText(ws.id, "items", name))
+        );
+        const parsedItems = itemTexts.map((xml) => parseQtiItemXml(xml));
+        setItems(parsedItems);
 
-                                    // 未採点の項目がある最初の問題を探索（基準はあるが value が未設定）
-                                    let firstUngraded = -1;
-                                    for (let qi = 0; qi < data.questions.length; qi++) {
-                                        const cset = ws.scoringCriteria?.[qi]?.criteria || [];
-                                        if (cset.length === 0) continue; // 基準がない問題は対象外
-                                        const scoresForQ = ws.scores?.[qi] || {};
-                                        // いずれかの受講者・基準で未採点(null または undefined)を検出
-                                        let foundUngraded = false;
-                                        for (const resp of data.responses) {
-                                            const rid = Number(resp.ID);
-                                            const perResp = scoresForQ[rid] || {};
-                                            for (const criterion of cset) {
-                                                const v = perResp[criterion.id];
-                                                if (!(typeof v === 'boolean') && v !== false && v !== true) { // 未採点
-                                                    foundUngraded = true;
-                                                    break;
-                                                }
-                                            }
-                                            if (foundUngraded) break;
-                                        }
-                                        if (foundUngraded) { firstUngraded = qi; break; }
-                                    }
-                                    if (firstUngraded >= 0) {
-                                        setViewMode("question");
-                                        setQuestionFocusIndex(firstUngraded);
-                                        const title = (ws.questionTitles && ws.questionTitles[firstUngraded]) || data.questions[firstUngraded];
-                                        const ok2 = window.confirm(`問題${firstUngraded + 1}（${title}）に未採点の採点基準があります。\nそれでもエクスポートを実行しますか？`);
-                                        if (!ok2) return;
-                                    }
-                                    exportAllAsZip(ws);
-                                }}
-                                className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
-                            >
-                                採点結果をエクスポート
-                            </button>
-                            <div className="flex bg-gray-200 rounded-lg p-1">
-                                <button
-                                    onClick={() => setViewMode("question")}
-                                    className={`px-4 py-2 rounded-md font-medium transition-colors ${viewMode === "question" ? "bg-green-600 text-white" : "text-gray-600 hover:text-gray-800"}`}
-                                >
-                                    📝 問題ごと表示
-                                </button>
-                                <button
-                                    onClick={() => setViewMode("person")}
-                                    className={`px-4 py-2 rounded-md font-medium transition-colors ${viewMode === "person" ? "bg-blue-600 text-white" : "text-gray-600 hover:text-gray-800"}`}
-                                >
-                                    👤 人ごと表示
-                                </button>
-                            </div>
-                        </div>
-                        {viewMode === "question" ? (
-                            <QuestionView
-                                data={formsData}
-                                workspace={currentWorkspace ?? undefined}
-                                initialIndex={questionFocusIndex}
-                                commentsRef={commentsRef}
-                            />
-                        ) : (
-                            <PersonView
-                                data={formsData}
-                                workspace={currentWorkspace ?? undefined}
-                                commentsRef={commentsRef}
-                            />
-                        )}
+        const resultTexts = await Promise.all(
+          ws.resultFiles.map((name) => fetchFileText(ws.id, "results", name))
+        );
+        const parsedResults = resultTexts.map((xml, index) => parseQtiResultsXml(xml, ws.resultFiles[index]));
 
-                        {openScoreSheet && currentWorkspace && (
-                            <div
-                                className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-                                onClick={() => setOpenScoreSheet(false)}
-                                role="dialog"
-                                aria-modal="true"
-                            >
-                                <div
-                                    className="w-full max-w-3xl bg-white rounded-lg shadow-xl overflow-hidden"
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    <div className="flex items-center justify-between px-4 py-3 border-b">
-                                        <h2 className="text-lg font-semibold">点数シートに記入</h2>
-                                        <button
-                                            onClick={() => setOpenScoreSheet(false)}
-                                            className="px-2 py-1 text-gray-600 hover:text-gray-900"
-                                            aria-label="閉じる"
-                                        >
-                                            ×
-                                        </button>
-                                    </div>
-                                    <div className="p-4">
-                                        <ScoreSheetFill workspace={currentWorkspace} />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-        </div>
+        const mappedResults = parsedResults.map((result) => {
+          const mappedItemResults: QtiResult["itemResults"] = {};
+          const missing: string[] = [];
+          for (const [resultId, itemResult] of Object.entries(result.itemResults)) {
+            const itemId = mappingParsed.resultToItem.get(resultId);
+            if (!itemId) {
+              missing.push(resultId);
+              continue;
+            }
+            mappedItemResults[itemId] = itemResult;
+          }
+          if (missing.length > 0) {
+            throw new Error(`マッピング未定義の結果ID: ${missing.join(", ")}`);
+          }
+          return { ...result, itemResults: mappedItemResults };
+        });
+        setResults(mappedResults);
+        setCurrentIndex(0);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "ワークスペースの読み込みに失敗しました");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [id]);
+
+  const currentResult = results[currentIndex];
+
+  const totalMaxScore = useMemo(() => {
+    return items.reduce((sum, item) => {
+      const max = item.rubric.reduce((s, c) => s + (Number.isFinite(c.points) ? c.points : 0), 0);
+      return sum + max;
+    }, 0);
+  }, [items]);
+
+  const currentScore = useMemo(() => {
+    if (!currentResult) return 0;
+    return items.reduce((sum, item) => {
+      const itemResult = currentResult.itemResults[item.identifier];
+      if (typeof itemResult?.score === "number") {
+        return sum + itemResult.score;
+      }
+      if (!itemResult || item.rubric.length === 0) return sum;
+      const rubricScore = item.rubric.reduce((s, c) => {
+        const met = itemResult.rubricOutcomes[c.index];
+        return s + (met ? c.points : 0);
+      }, 0);
+      return sum + rubricScore;
+    }, 0);
+  }, [currentResult, items]);
+
+  const showLoop = (message: string) => {
+    setLoopMessage(message);
+    setTimeout(() => setLoopMessage(null), 2000);
+  };
+
+  const next = () => {
+    if (!results.length) return;
+    const nextIndex = (currentIndex + 1) % results.length;
+    if (currentIndex === results.length - 1) {
+      showLoop("最後から最初の受講者に戻りました");
+    }
+    setCurrentIndex(nextIndex);
+  };
+
+  const prev = () => {
+    if (!results.length) return;
+    const prevIndex = (currentIndex - 1 + results.length) % results.length;
+    if (currentIndex === 0) {
+      showLoop("最初から最後の受講者に移動しました");
+    }
+    setCurrentIndex(prevIndex);
+  };
+
+  const formatResponse = (item: QtiItem, itemResult?: QtiResult["itemResults"][string]) => {
+    if (!itemResult || itemResult.response === null || itemResult.response === undefined) {
+      return "（回答なし）";
+    }
+    if (Array.isArray(itemResult.response)) {
+      return itemResult.response.join(" / ");
+    }
+    if (item.type === "choice") {
+      const choice = item.choices.find((c) => c.identifier === itemResult.response);
+      return choice ? `${choice.text} (${itemResult.response})` : String(itemResult.response);
+    }
+    return String(itemResult.response);
+  };
+
+  const updateCriteria = async (
+    resultFile: string,
+    itemId: string,
+    rubricOutcomes: Record<number, boolean>
+  ) => {
+    const item = items.find((i) => i.identifier === itemId);
+    if (!item || item.rubric.length === 0) return;
+    const criteria = item.rubric.map((c) => ({
+      met: rubricOutcomes[c.index] ?? false,
+      criterionText: c.text,
+    }));
+    await fetch(`/api/workspaces/${id}/results`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        resultFile,
+        items: [{ identifier: itemId, criteria }],
+      }),
+    }).then(async (res) => {
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "採点結果の更新に失敗しました");
+      }
+    });
+  };
+
+  const updateComment = async (resultFile: string, itemId: string, comment: string) => {
+    await fetch(`/api/workspaces/${id}/results`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        resultFile,
+        items: [{ identifier: itemId, comment }],
+      }),
+    }).then(async (res) => {
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "コメントの更新に失敗しました");
+      }
+    });
+  };
+
+  const handleToggleCriterion = async (itemId: string, criterionIndex: number, value: boolean) => {
+    if (!currentResult) return;
+    const resultFile = currentResult.fileName;
+    const prevResults = results;
+    setSaving(true);
+    setError(null);
+    setResults((prev) =>
+      prev.map((res) => {
+        if (res.fileName !== resultFile) return res;
+        const itemResult = res.itemResults[itemId] || {
+          resultIdentifier: mapping?.itemToResult.get(itemId) || itemId,
+          response: null,
+          rubricOutcomes: {},
+        };
+        const rubricOutcomes = { ...itemResult.rubricOutcomes, [criterionIndex]: value };
+        const item = items.find((i) => i.identifier === itemId);
+        const score = item
+          ? item.rubric.reduce((sum, c) => sum + (rubricOutcomes[c.index] ? c.points : 0), 0)
+          : itemResult.score;
+        return {
+          ...res,
+          itemResults: {
+            ...res.itemResults,
+            [itemId]: { ...itemResult, rubricOutcomes, score },
+          },
+        };
+      })
     );
+
+    try {
+      const itemResult = currentResult.itemResults[itemId];
+      const rubricOutcomes = { ...(itemResult?.rubricOutcomes || {}), [criterionIndex]: value };
+      await updateCriteria(resultFile, itemId, rubricOutcomes);
+    } catch (err) {
+      setResults(prevResults);
+      setError(err instanceof Error ? err.message : "採点結果の更新に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCommentBlur = async (itemId: string, comment: string) => {
+    if (!currentResult) return;
+    const resultFile = currentResult.fileName;
+    const prevResults = results;
+    setSaving(true);
+    setError(null);
+    setResults((prev) =>
+      prev.map((res) => {
+        if (res.fileName !== resultFile) return res;
+        const itemResult = res.itemResults[itemId] || {
+          resultIdentifier: mapping?.itemToResult.get(itemId) || itemId,
+          response: null,
+          rubricOutcomes: {},
+        };
+        return {
+          ...res,
+          itemResults: {
+            ...res.itemResults,
+            [itemId]: { ...itemResult, comment },
+          },
+        };
+      })
+    );
+
+    try {
+      await updateComment(resultFile, itemId, comment);
+    } catch (err) {
+      setResults(prevResults);
+      setError(err instanceof Error ? err.message : "コメントの更新に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDownloadResults = async () => {
+    if (!workspace) return;
+    const zip = new JSZip();
+    for (const name of workspace.resultFiles) {
+      const xml = await fetchFileText(workspace.id, "results", name);
+      zip.file(name, xml);
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${workspace.name} results.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  if (loading) {
+    return <div className="p-8 text-center text-gray-500">読み込み中...</div>;
+  }
+
+  if (!workspace || !mapping) {
+    return <div className="p-8 text-center text-gray-500">ワークスペースが見つかりません</div>;
+  }
+  if (!currentResult && error) {
+    return <div className="p-8 text-center text-red-600">{error}</div>;
+  }
+  if (!currentResult) {
+    return <div className="p-8 text-center text-gray-500">結果データがありません</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="container mx-auto px-4">
+        <header className="text-center mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">QTI 3.0 採点システム</h1>
+          <p className="text-gray-600">ワークスペース: {workspace.name}</p>
+        </header>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+
+        <div className="flex flex-wrap justify-center items-center gap-3 mb-6">
+          <button
+            onClick={() => router.push("/")}
+            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+          >
+            ワークスペース一覧に戻る
+          </button>
+          <button
+            onClick={handleDownloadResults}
+            className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
+          >
+            結果XMLをダウンロード
+          </button>
+          {saving && <span className="text-sm text-gray-500">更新中...</span>}
+        </div>
+
+        <div className="sticky top-0 bg-white border rounded-lg shadow-sm p-4 mb-6 z-10">
+          {loopMessage && (
+            <div className="mb-3 p-2 bg-yellow-100 border border-yellow-300 rounded-md text-yellow-800 text-sm text-center">
+              {loopMessage}
+            </div>
+          )}
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="text-xl font-bold text-gray-800">
+                {currentResult.candidateName}
+              </div>
+              <div className="text-sm text-gray-500">
+                {currentIndex + 1} / {results.length}
+              </div>
+              {totalMaxScore > 0 ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    合計: <span className="text-blue-600">{currentScore}</span> / {totalMaxScore}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-xs text-gray-400">採点基準がありません</span>
+              )}
+              <button
+                onClick={() => setShowBasicInfo(!showBasicInfo)}
+                className="text-sm text-blue-600 hover:text-blue-800 underline"
+              >
+                {showBasicInfo ? "詳細を隠す" : "詳細を表示"}
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={prev}
+                disabled={results.length <= 1}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                ← 前
+              </button>
+              <button
+                onClick={next}
+                disabled={results.length <= 1}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                次 →
+              </button>
+            </div>
+          </div>
+          {showBasicInfo && (
+            <div className="mt-4 pt-4 border-t border-gray-200 text-sm grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div>
+                <span className="text-gray-500">sourcedId:</span> {currentResult.sourcedId || "未設定"}
+              </div>
+              <div>
+                <span className="text-gray-500">result file:</span> {currentResult.fileName}
+              </div>
+              <div>
+                <span className="text-gray-500">items:</span> {items.length}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-6">
+          {items.map((item, index) => {
+            const itemResult = currentResult.itemResults[item.identifier];
+            const responseText = formatResponse(item, itemResult);
+            const rubric = item.rubric;
+            const comment = itemResult?.comment ?? "";
+            return (
+              <div key={item.identifier} className="bg-white border rounded-lg p-6 shadow-sm">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="bg-blue-600 text-white text-sm font-bold px-3 py-1 rounded-md">
+                    問{index + 1}
+                  </span>
+                  <h2 className="text-lg font-semibold text-gray-800">{item.title}</h2>
+                </div>
+                <div
+                  className="prose max-w-none qti-prompt"
+                  dangerouslySetInnerHTML={{ __html: item.promptHtml }}
+                />
+                <div className="mt-4 bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500 text-sm text-gray-800 whitespace-pre-wrap">
+                  {responseText}
+                </div>
+
+                {item.candidateExplanationHtml && (
+                  <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
+                    <div className="font-medium text-amber-800 mb-1">解説</div>
+                    <div dangerouslySetInnerHTML={{ __html: item.candidateExplanationHtml }} />
+                  </div>
+                )}
+
+                {rubric.length > 0 && (
+                  <div className="mt-5 border-t pt-4">
+                    <div className="text-xs text-gray-500 mb-2">採点基準</div>
+                    <div className="space-y-2">
+                      {rubric.map((criterion) => {
+                        const value = itemResult?.rubricOutcomes[criterion.index];
+                        return (
+                          <div key={criterion.index} className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCriterion(item.identifier, criterion.index, true)}
+                              className={`px-2 py-1 rounded text-xs border ${value === true ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-600 border-gray-300"}`}
+                            >
+                              〇
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCriterion(item.identifier, criterion.index, false)}
+                              className={`px-2 py-1 rounded text-xs border ${value === false ? "bg-red-600 text-white border-red-600" : "bg-white text-gray-600 border-gray-300"}`}
+                            >
+                              ×
+                            </button>
+                            <span className="text-xs text-gray-700">
+                              [{criterion.points}] {criterion.text}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-3">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">コメント</label>
+                      <textarea
+                        className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows={2}
+                        defaultValue={comment}
+                        onBlur={(e) => handleCommentBlur(item.identifier, e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }

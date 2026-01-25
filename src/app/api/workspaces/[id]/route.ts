@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getWorkspace, deleteWorkspace, updateWorkspace, reimportWorkspaceData } from '@/lib/workspace';
-import { UpdateWorkspaceRequest, ReimportDataRequest } from '@/types/forms';
+import { readWorkspace, deleteWorkspace, updateWorkspace } from '@/lib/workspace';
+import { UpdateWorkspaceRequest } from '@/types/qti';
+
+export const runtime = 'nodejs';
 
 // 特定のワークスペース取得
 export async function GET(
@@ -9,7 +11,7 @@ export async function GET(
 ) {
     try {
         const { id } = await params;
-        const workspace = await getWorkspace(id);
+        const workspace = await readWorkspace(id);
 
         if (!workspace) {
             return NextResponse.json(
@@ -69,50 +71,6 @@ export async function PUT(
         console.error('ワークスペース更新エラー:', error);
         return NextResponse.json(
             { error: 'ワークスペースの更新に失敗しました' },
-            { status: 500 }
-        );
-    }
-}
-
-// ワークスペースデータ再インポート
-export async function PATCH(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await params;
-        const body: ReimportDataRequest = await request.json();
-        console.log('データ再インポートリクエスト:', id);
-
-        // バリデーション
-        if (!body.newData || !body.fileName) {
-            return NextResponse.json(
-                { error: '必要なデータが不足しています' },
-                { status: 400 }
-            );
-        }
-
-        const result = await reimportWorkspaceData(id, body.newData, body.fileName);
-
-        if (!result.success) {
-            return NextResponse.json(
-                {
-                    error: result.error,
-                    details: result.details
-                },
-                { status: 400 }
-            );
-        }
-
-        return NextResponse.json({
-            success: true,
-            message: 'データの再インポートが完了しました',
-            details: result.details
-        });
-    } catch (error) {
-        console.error('データ再インポートエラー:', error);
-        return NextResponse.json(
-            { error: 'データの再インポートに失敗しました' },
             { status: 500 }
         );
     }

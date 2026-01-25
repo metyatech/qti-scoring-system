@@ -1,29 +1,21 @@
-# アンケート採点システム（Forms / Track Training 対応）
+# QTI 3.0 採点システム
 
-Microsoft Forms または Track Training のデータ（Excel/CSV）を読み込み、回答をプレビューして採点を行うWebアプリケーションです。
+QTI 3.0 の assessment item / Results Reporting を読み込み、採点とコメントを行うWebアプリケーションです。
 
 ## 機能
 
 ### 現在実装済み
-- ✅ Microsoft Forms / Track Training の Excel/CSV アップロード機能
-- ✅ 回答データの解析とプレビュー機能
-- ✅ 一人ずつの回答表示（前へ/次へナビゲーション）
-- ✅ 基本情報（ID、名前、メール、時刻）の表示
-- ✅ 問題と回答の対応表示
-
-### 今後実装予定
-- 採点基準の設定機能
-- 二択評価インターフェース（基準を満たす/満たさない）
-- 点数計算機能
-- 採点結果のエクスポート機能
+- ✅ QTI 3.0 item XML / Results Reporting XML のアップロード
+- ✅ 受講者ごとの回答表示（前へ/次へナビゲーション）
+- ✅ 採点基準（rubric）に基づく採点
+- ✅ コメントの保存（Results Reporting の `COMMENT` outcome）
+- ✅ Results XML のダウンロード
 
 ## 技術スタック
 
 - **フレームワーク**: Next.js 15 (App Router)
 - **言語**: TypeScript
 - **スタイリング**: Tailwind CSS
-- **Excel処理**: xlsx
-- **ファイルアップロード**: react-dropzone
 - **リンティング**: ESLint
 
 ## セットアップ
@@ -42,20 +34,38 @@ npm run dev
 
 ## 使用方法
 
-1. Microsoft Forms または Track Training の Excel/CSV ファイル（.xlsx / .xls / .csv）をドラッグ&ドロップまたはクリックしてアップロード
-2. 回答データが自動で解析され、プレビュー画面が表示されます
-3. 「前へ」「次へ」ボタンで回答者を切り替えて内容を確認できます
+1. QTI item XML（複数）と Results Reporting XML（複数）を選択
+2. `resultItemIdentifier,itemIdentifier` のマッピングCSVを選択
+3. ワークスペースを作成し、受講者ごとに採点・コメントを行う
 
 ## 入力データ形式
 
-- Microsoft Forms 形式（Excel/CSV）
-	- 1行目：ヘッダー（ID, 開始時刻, 完了時刻, メール, 名前, 問題文1, 問題文2, ...）
-	- 2行目以降：回答データ（IDが空になるまで）
+### QTI item XML
+- `qti-assessment-item` がルートの QTI 3.0 item
+- 採点基準は `qti-rubric-block view="scorer"` に `[<points>] <criterion>` 形式で記述
 
-- Track Training 形式（CSV想定）
-	- 基本情報の列: traineeId, startAt, endAt, account, traineeName
-	- 回答の列: q1/answer, q2/answer, ...（問題文は含まれません）
-	- 本アプリでは質問ラベルを q1, q2, ... として扱います
+### QTI Results Reporting XML
+- `assessmentResult` がルートの QTI 3.0 Results Reporting
+- `itemResult@identifier` と item の `identifier` をマッピングCSVで対応付ける
+
+### マッピングCSV
+```
+resultItemIdentifier,itemIdentifier
+Q1,item-001
+Q2,item-002
+```
+
+## 外部ツール連携
+
+Results XML の更新には `apply-to-qti-results` を使用します。
+
+デフォルトでは `../apply-to-qti-results` を参照します。
+別の場所に置く場合は環境変数を設定してください。
+
+```
+APPLY_TO_QTI_RESULTS_DIR=<path>
+TSX_CLI_PATH=<path_to_tsx_cli>  # 任意
+```
 
 ## 開発
 
@@ -68,4 +78,7 @@ npm run build
 
 # リント実行
 npm run lint
+
+# テスト実行
+npm run test
 ```

@@ -1,30 +1,86 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { saveWorkspace, getWorkspaces } from '@/lib/workspace';
-import { CreateWorkspaceRequest } from '@/types/forms';
+import path from 'path';
+import fs from 'fs';
+import { ensureWorkspaceSubdirs, sanitizeFileName, writeWorkspace, listWorkspaces } from '@/lib/workspace';
+import { validateMappingConsistency } from '@/lib/qtiValidation';
+import { QtiWorkspace } from '@/types/qti';
+
+export const runtime = 'nodejs';
 
 // ワークスペース作成
 export async function POST(request: NextRequest) {
     try {
-        console.log('ワークスペース作成APIが呼ばれました');
-        const body: CreateWorkspaceRequest = await request.json();
-        console.log('受信したデータ:', JSON.stringify(body, null, 2));
+        const form = await request.formData();
+        const name = String(form.get('name') ?? '').trim();
+        const description = String(form.get('description') ?? '').trim();
+        const items = form.getAll('items').filter((v): v is File => v instanceof File);
+        const results = form.getAll('results').filter((v): v is File => v instanceof File);
+        const mapping = form.get('mapping');
 
-        // バリデーション
-        if (!body.name || !body.formsData || !body.fileName) {
-            console.log('バリデーションエラー:', {
-                name: !!body.name,
-                formsData: !!body.formsData,
-                fileName: !!body.fileName
-            });
+        if (!name || items.length === 0 || results.length === 0 || !(mapping instanceof File)) {
+            return NextResponse.json({ error: '必要なデータが不足しています' }, { status: 400 });
+        }
+
+        const itemBuffers = await Promise.all(items.map(async (file) => ({
+            file,
+            safeName: sanitizeFileName(file.name || 'item.xml'),
+            buffer: Buffer.from(await file.arrayBuffer()),
+        })));
+        const resultBuffers = await Promise.all(results.map(async (file) => ({
+            file,
+            safeName: sanitizeFileName(file.name || 'results.xml'),
+            buffer: Buffer.from(await file.arrayBuffer()),
+        })));
+        const mappingName = sanitizeFileName(mapping.name || 'mapping.csv');
+        const mappingBuffer = Buffer.from(await mapping.arrayBuffer());
+
+        const validation = validateMappingConsistency(
+            itemBuffers.map((entry) => entry.buffer.toString('utf-8')),
+            resultBuffers.map((entry) => entry.buffer.toString('utf-8')),
+            mappingBuffer.toString('utf-8')
+        );
+        if (!validation.isValid) {
             return NextResponse.json(
-                { error: '必要なデータが不足しています' },
+                { error: validation.errors.join('\n') },
                 { status: 400 }
             );
         }
 
-        console.log('ワークスペースを保存中...');
-        const workspace = await saveWorkspace(body);
-        console.log('ワークスペース保存完了:', workspace.id);
+        const workspaceId = generateWorkspaceId();
+        const workspaceDir = await ensureWorkspaceSubdirs(workspaceId);
+
+        const itemFiles: string[] = [];
+        for (const entry of itemBuffers) {
+            const target = path.join(workspaceDir, 'items', entry.safeName);
+            await fs.promises.writeFile(target, entry.buffer);
+            itemFiles.push(entry.safeName);
+        }
+
+        const resultFiles: string[] = [];
+        for (const entry of resultBuffers) {
+            const target = path.join(workspaceDir, 'results', entry.safeName);
+            await fs.promises.writeFile(target, entry.buffer);
+            resultFiles.push(entry.safeName);
+        }
+
+        const mappingTarget = path.join(workspaceDir, mappingName);
+        await fs.promises.writeFile(mappingTarget, mappingBuffer);
+
+        const now = new Date().toISOString();
+        const workspace: QtiWorkspace = {
+            id: workspaceId,
+            name,
+            description: description || undefined,
+            createdAt: now,
+            updatedAt: now,
+            itemFiles,
+            resultFiles,
+            mappingFile: mappingName,
+            itemCount: itemFiles.length,
+            resultCount: resultFiles.length,
+        };
+
+        await writeWorkspace(workspace);
 
         return NextResponse.json({
             success: true,
@@ -33,9 +89,8 @@ export async function POST(request: NextRequest) {
                 name: workspace.name,
                 description: workspace.description,
                 createdAt: workspace.createdAt,
-                fileName: workspace.fileName,
-                totalResponses: workspace.formsData.totalResponses,
-                totalQuestions: workspace.formsData.questions.length,
+                itemCount: workspace.itemCount,
+                resultCount: workspace.resultCount,
             }
         });
     } catch (error) {
@@ -50,7 +105,7 @@ export async function POST(request: NextRequest) {
 // ワークスペース一覧取得
 export async function GET() {
     try {
-        const workspaces = await getWorkspaces();
+        const workspaces = await listWorkspaces();
         return NextResponse.json({
             success: true,
             workspaces
@@ -63,3 +118,9 @@ export async function GET() {
         );
     }
 }
+
+const generateWorkspaceId = (): string => {
+    const timestamp = Date.now().toString(36);
+    const randomStr = Math.random().toString(36).substring(2, 8);
+    return `ws_${timestamp}_${randomStr}`;
+};
