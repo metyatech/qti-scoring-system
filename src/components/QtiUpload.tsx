@@ -1,22 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type InputHTMLAttributes } from 'react';
 
 interface QtiUploadProps {
   onWorkspaceCreated: (workspaceId: string) => void;
 }
 
 const acceptXml = '.xml,application/xml,text/xml';
-const acceptCsv = '.csv,text/csv,application/vnd.ms-excel';
+const directoryInputProps = {
+  webkitdirectory: '',
+  directory: '',
+} as unknown as InputHTMLAttributes<HTMLInputElement>;
 
 export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
   const [workspaceName, setWorkspaceName] = useState('');
   const [workspaceDescription, setWorkspaceDescription] = useState('');
-  const [itemFiles, setItemFiles] = useState<File[]>([]);
+  const [assessmentFiles, setAssessmentFiles] = useState<File[]>([]);
   const [resultFiles, setResultFiles] = useState<File[]>([]);
-  const [mappingFile, setMappingFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const getRelativePath = (file: File) =>
+    (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
+
+  const assessmentTestCount = assessmentFiles.reduce((count, file) => {
+    return getRelativePath(file).endsWith('assessment-test.qti.xml') ? count + 1 : count;
+  }, 0);
 
   const handleSubmit = async () => {
     setError(null);
@@ -24,16 +33,16 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
       setError('ワークスペース名を入力してください');
       return;
     }
-    if (itemFiles.length === 0) {
-      setError('QTI item XML を1つ以上選択してください');
+    if (assessmentFiles.length === 0) {
+      setError('assessment-test を含むフォルダを選択してください');
       return;
     }
     if (resultFiles.length === 0) {
       setError('QTI Results Reporting XML を1つ以上選択してください');
       return;
     }
-    if (!mappingFile) {
-      setError('マッピングCSVを選択してください');
+    if (assessmentTestCount !== 1) {
+      setError('assessment-test.qti.xml を1つだけ含むフォルダを選択してください');
       return;
     }
 
@@ -44,9 +53,11 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
       if (workspaceDescription.trim()) {
         form.append('description', workspaceDescription.trim());
       }
-      itemFiles.forEach(file => form.append('items', file));
+      assessmentFiles.forEach((file) => {
+        const relativePath = getRelativePath(file) || file.name;
+        form.append('assessmentFiles', file, relativePath);
+      });
       resultFiles.forEach(file => form.append('results', file));
-      form.append('mapping', mappingFile);
 
       const response = await fetch('/api/workspaces', {
         method: 'POST',
@@ -105,17 +116,24 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              QTI item XML（複数可） *
+              QTI assessment-test を含むフォルダ *
             </label>
             <input
               type="file"
               accept={acceptXml}
               multiple
-              onChange={(e) => setItemFiles(Array.from(e.target.files || []))}
+              {...directoryInputProps}
+              onChange={(e) => setAssessmentFiles(Array.from(e.target.files || []))}
               disabled={isLoading}
               className="block w-full text-sm text-gray-700"
             />
-            <div className="text-xs text-gray-500 mt-1">選択中: {itemFiles.length}件</div>
+            <div className="text-xs text-gray-500 mt-1">
+              選択中: {assessmentFiles.length}件 / assessment-test:{' '}
+              {assessmentTestCount === 1 ? '検出済み' : assessmentTestCount === 0 ? '未検出' : '複数検出'}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              assessment-test.qti.xml と設問 XML を含む出力フォルダを選択してください。
+            </div>
           </div>
 
           <div>
@@ -133,21 +151,6 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
             <div className="text-xs text-gray-500 mt-1">選択中: {resultFiles.length}件</div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              マッピングCSV（resultItemIdentifier,itemIdentifier） *
-            </label>
-            <input
-              type="file"
-              accept={acceptCsv}
-              onChange={(e) => setMappingFile(e.target.files?.[0] ?? null)}
-              disabled={isLoading}
-              className="block w-full text-sm text-gray-700"
-            />
-            <div className="text-xs text-gray-500 mt-1">
-              {mappingFile ? `選択中: ${mappingFile.name}` : '未選択'}
-            </div>
-          </div>
         </div>
 
         {error && (
@@ -169,9 +172,8 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
             onClick={() => {
               setWorkspaceName('');
               setWorkspaceDescription('');
-              setItemFiles([]);
+              setAssessmentFiles([]);
               setResultFiles([]);
-              setMappingFile(null);
               setError(null);
             }}
             disabled={isLoading}

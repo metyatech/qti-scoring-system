@@ -5,7 +5,7 @@ QTI 3.0 の assessment item / Results Reporting を読み込み、採点とコ�
 ## 機能
 
 ### 現在実装済み
-- ✅ QTI 3.0 item XML / Results Reporting XML のアップロード
+- ✅ QTI 3.0 assessment-test / Results Reporting XML のアップロード
 - ✅ 受講者ごとの回答表示（前へ/次へナビゲーション）
 - ✅ 採点基準（rubric）に基づく採点
 - ✅ コメントの保存（Results Reporting の `COMMENT` outcome）
@@ -34,26 +34,24 @@ npm run dev
 
 ## 使用方法
 
-1. QTI item XML（複数）と Results Reporting XML（複数）を選択
-2. `resultItemIdentifier,itemIdentifier` のマッピングCSVを選択
-3. ワークスペースを作成し、受講者ごとに採点・コメントを行う
+1. assessment-test.qti.xml を含む出力フォルダと Results Reporting XML（複数）を選択
+2. ワークスペースを作成し、受講者ごとに採点・コメントを行う
 
 ## 入力データ形式
+
+### QTI assessment-test.qti.xml
+- `qti-assessment-test` がルートの QTI 3.0 assessment test
+- `qti-assessment-item-ref` の `identifier` / `href` で設問を参照
+- assessment-test と設問 XML を同じ出力フォルダに置き、フォルダごと選択して取り込む
 
 ### QTI item XML
 - `qti-assessment-item` がルートの QTI 3.0 item
 - 採点基準は `qti-rubric-block view="scorer"` に `[<points>] <criterion>` 形式で記述
+- item の `identifier` は assessment-test の `identifier` と一致している必要がある
 
 ### QTI Results Reporting XML
 - `assessmentResult` がルートの QTI 3.0 Results Reporting
-- `itemResult@identifier` と item の `identifier` をマッピングCSVで対応付ける
-
-### マッピングCSV
-```
-resultItemIdentifier,itemIdentifier
-Q1,item-001
-Q2,item-002
-```
+- `itemResult@sequenceIndex` が必須で、assessment-test の設問数と一致している必要がある
 
 ## 外部ツール連携
 

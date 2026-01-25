@@ -7,15 +7,11 @@ import { QtiWorkspace } from "@/types/qti";
 import {
   QtiItem,
   QtiResult,
-  parseMappingCsv,
+  parseAssessmentTestXml,
   parseQtiItemXml,
   parseQtiResultsXml,
+  remapResultToAssessmentItems,
 } from "@/utils/qtiParsing";
-
-type Mapping = {
-  resultToItem: Map<string, string>;
-  itemToResult: Map<string, string>;
-};
 
 const fetchFileText = async (workspaceId: string, kind: string, name: string) => {
   const res = await fetch(`/api/workspaces/${workspaceId}/files?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}`);
@@ -31,7 +27,6 @@ export default function WorkspacePage() {
   const [workspace, setWorkspace] = useState<QtiWorkspace | null>(null);
   const [items, setItems] = useState<QtiItem[]>([]);
   const [results, setResults] = useState<QtiResult[]>([]);
-  const [mapping, setMapping] = useState<Mapping | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -52,15 +47,27 @@ export default function WorkspacePage() {
         }
         const ws: QtiWorkspace = wsJson.workspace;
         setWorkspace(ws);
+        if (!ws.assessmentTestFile) {
+          throw new Error('assessment-test が見つかりません');
+        }
 
-        const mappingText = await fetchFileText(ws.id, "mapping", ws.mappingFile);
-        const mappingParsed = parseMappingCsv(mappingText);
-        setMapping(mappingParsed);
+        const assessmentTestXml = await fetchFileText(ws.id, "assessment", ws.assessmentTestFile);
+        const itemRefs = parseAssessmentTestXml(assessmentTestXml);
+        if (ws.itemFiles.length !== itemRefs.length) {
+          throw new Error("assessmentTest と設問ファイル数が一致しません");
+        }
 
         const itemTexts = await Promise.all(
-          ws.itemFiles.map((name) => fetchFileText(ws.id, "items", name))
+          ws.itemFiles.map((name) => fetchFileText(ws.id, "assessment", name))
         );
-        const parsedItems = itemTexts.map((xml) => parseQtiItemXml(xml));
+        const parsedItems = itemTexts.map((xml, index) => {
+          const item = parseQtiItemXml(xml);
+          const expectedIdentifier = itemRefs[index]?.identifier;
+          if (expectedIdentifier && item.identifier !== expectedIdentifier) {
+            throw new Error(`assessmentTest と item identifier が一致しません: ${expectedIdentifier}`);
+          }
+          return item;
+        });
         setItems(parsedItems);
 
         const resultTexts = await Promise.all(
@@ -69,20 +76,18 @@ export default function WorkspacePage() {
         const parsedResults = resultTexts.map((xml, index) => parseQtiResultsXml(xml, ws.resultFiles[index]));
 
         const mappedResults = parsedResults.map((result) => {
-          const mappedItemResults: QtiResult["itemResults"] = {};
-          const missing: string[] = [];
-          for (const [resultId, itemResult] of Object.entries(result.itemResults)) {
-            const itemId = mappingParsed.resultToItem.get(resultId);
-            if (!itemId) {
-              missing.push(resultId);
-              continue;
-            }
-            mappedItemResults[itemId] = itemResult;
+          const remapped = remapResultToAssessmentItems(result, itemRefs);
+          if (remapped.missingResultIdentifiers.length > 0) {
+            throw new Error(
+              `assessmentTest に対応しない結果IDがあります (${result.fileName}): ${remapped.missingResultIdentifiers.join(", ")}`
+            );
           }
-          if (missing.length > 0) {
-            throw new Error(`マッピング未定義の結果ID: ${missing.join(", ")}`);
+          if (remapped.duplicateItemIdentifiers.length > 0) {
+            throw new Error(
+              `同じ設問に複数の結果が割り当てられています (${result.fileName}): ${remapped.duplicateItemIdentifiers.join(", ")}`
+            );
           }
-          return { ...result, itemResults: mappedItemResults };
+          return { ...result, itemResults: remapped.mappedItemResults };
         });
         setResults(mappedResults);
         setCurrentIndex(0);
@@ -209,7 +214,7 @@ export default function WorkspacePage() {
       prev.map((res) => {
         if (res.fileName !== resultFile) return res;
         const itemResult = res.itemResults[itemId] || {
-          resultIdentifier: mapping?.itemToResult.get(itemId) || itemId,
+          resultIdentifier: itemId,
           response: null,
           rubricOutcomes: {},
         };
@@ -250,7 +255,7 @@ export default function WorkspacePage() {
       prev.map((res) => {
         if (res.fileName !== resultFile) return res;
         const itemResult = res.itemResults[itemId] || {
-          resultIdentifier: mapping?.itemToResult.get(itemId) || itemId,
+          resultIdentifier: itemId,
           response: null,
           rubricOutcomes: {},
         };
@@ -294,7 +299,7 @@ export default function WorkspacePage() {
     return <div className="p-8 text-center text-gray-500">読み込み中...</div>;
   }
 
-  if (!workspace || !mapping) {
+  if (!workspace) {
     return <div className="p-8 text-center text-gray-500">ワークスペースが見つかりません</div>;
   }
   if (!currentResult && error) {

@@ -31,29 +31,31 @@ export async function PUT(
       return NextResponse.json({ error: '結果ファイルが見つかりません' }, { status: 404 });
     }
 
-    const itemPaths = workspace.itemFiles.map((file) => path.join(workspaceDir, 'items', file));
-    const mappingPath = path.join(workspaceDir, workspace.mappingFile);
-    if (!workspace.mappingFile || !fs.existsSync(mappingPath)) {
-      return NextResponse.json({ error: 'マッピングCSVが見つかりません' }, { status: 400 });
+    const assessmentTestPath = path.join(workspaceDir, 'assessment', workspace.assessmentTestFile);
+    if (!workspace.assessmentTestFile || !fs.existsSync(assessmentTestPath)) {
+      return NextResponse.json({ error: 'assessmentTest が見つかりません' }, { status: 400 });
     }
 
     const scoringInput = { items: body.items };
     const tmpDir = path.join(workspaceDir, 'tmp');
     await fs.promises.mkdir(tmpDir, { recursive: true });
-    const tmpPath = path.join(tmpDir, `scoring-${Date.now()}.json`);
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const tmpPath = path.join(tmpDir, `scoring-${stamp}.json`);
+    const tmpResultsPath = path.join(tmpDir, `results-${stamp}.xml`);
     await fs.promises.writeFile(tmpPath, JSON.stringify(scoringInput, null, 2), 'utf-8');
+    await fs.promises.copyFile(resultPath, tmpResultsPath);
 
     try {
       const updatedXml = await applyQtiResultsUpdate({
-        resultsPath: resultPath,
-        itemPaths,
+        resultsPath: tmpResultsPath,
+        assessmentTestPath,
         scoringPath: tmpPath,
-        mappingPath,
         preserveMet: body.preserveMet,
       });
       await updateResultXml(id, body.resultFile, updatedXml);
     } finally {
       try { await fs.promises.unlink(tmpPath); } catch { /* ignore */ }
+      try { await fs.promises.unlink(tmpResultsPath); } catch { /* ignore */ }
     }
 
     return NextResponse.json({ success: true });

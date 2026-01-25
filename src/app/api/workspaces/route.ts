@@ -1,11 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
-import { ensureWorkspaceSubdirs, sanitizeFileName, writeWorkspace, listWorkspaces } from '@/lib/workspace';
-import { validateMappingConsistency } from '@/lib/qtiValidation';
+import {
+  ensureWorkspaceSubdirs,
+  sanitizeFileName,
+  sanitizeRelativePath,
+  writeWorkspace,
+  listWorkspaces,
+} from '@/lib/workspace';
+import { validateAssessmentConsistency } from '@/lib/qtiValidation';
 import { QtiWorkspace } from '@/types/qti';
 
 export const runtime = 'nodejs';
+
+const normalizeUploadPath = (value: string) => value.replace(/\\/g, '/').replace(/^\/+/, '');
+
+const detectSharedRootSegment = (paths: string[]): string | null => {
+  if (paths.length === 0) return null;
+  if (!paths.every((p) => p.includes('/'))) return null;
+  const first = paths[0].split('/')[0];
+  if (!first) return null;
+  return paths.every((p) => p.startsWith(`${first}/`)) ? first : null;
+};
+
+const stripSharedRootSegment = (value: string, rootSegment: string | null) => {
+  if (!rootSegment) return value;
+  return value.startsWith(`${rootSegment}/`) ? value.slice(rootSegment.length + 1) : value;
+};
 
 // ワークスペース作成
 export async function POST(request: NextRequest) {
@@ -13,58 +34,108 @@ export async function POST(request: NextRequest) {
         const form = await request.formData();
         const name = String(form.get('name') ?? '').trim();
         const description = String(form.get('description') ?? '').trim();
-        const items = form.getAll('items').filter((v): v is File => v instanceof File);
+        const assessmentInputs = form.getAll('assessmentFiles').filter((v): v is File => v instanceof File);
         const results = form.getAll('results').filter((v): v is File => v instanceof File);
-        const mapping = form.get('mapping');
 
-        if (!name || items.length === 0 || results.length === 0 || !(mapping instanceof File)) {
+        if (!name || assessmentInputs.length === 0 || results.length === 0) {
             return NextResponse.json({ error: '必要なデータが不足しています' }, { status: 400 });
         }
 
-        const itemBuffers = await Promise.all(items.map(async (file) => ({
-            file,
-            safeName: sanitizeFileName(file.name || 'item.xml'),
-            buffer: Buffer.from(await file.arrayBuffer()),
-        })));
-        const resultBuffers = await Promise.all(results.map(async (file) => ({
-            file,
-            safeName: sanitizeFileName(file.name || 'results.xml'),
-            buffer: Buffer.from(await file.arrayBuffer()),
-        })));
-        const mappingName = sanitizeFileName(mapping.name || 'mapping.csv');
-        const mappingBuffer = Buffer.from(await mapping.arrayBuffer());
-
-        const validation = validateMappingConsistency(
-            itemBuffers.map((entry) => entry.buffer.toString('utf-8')),
-            resultBuffers.map((entry) => entry.buffer.toString('utf-8')),
-            mappingBuffer.toString('utf-8')
+        const assessmentRawPaths = assessmentInputs.map((file) =>
+            normalizeUploadPath(file.name || 'assessment.xml')
         );
+        const sharedRoot = detectSharedRootSegment(assessmentRawPaths);
+
+        const assessmentEntries: Array<{ safePath: string; buffer: Buffer }> = [];
+        const assessmentBuffers = new Map<string, Buffer>();
+        for (let index = 0; index < assessmentInputs.length; index += 1) {
+            const file = assessmentInputs[index];
+            const rawPath = assessmentRawPaths[index];
+            const stripped = stripSharedRootSegment(rawPath, sharedRoot);
+            let safePath: string;
+            try {
+                safePath = sanitizeRelativePath(stripped);
+            } catch (error) {
+                return NextResponse.json(
+                    { error: error instanceof Error ? error.message : 'assessmentFiles のパスが不正です' },
+                    { status: 400 }
+                );
+            }
+            if (assessmentBuffers.has(safePath)) {
+                return NextResponse.json(
+                    { error: `assessmentFiles に重複したパスがあります: ${safePath}` },
+                    { status: 400 }
+                );
+            }
+            const buffer = Buffer.from(await file.arrayBuffer());
+            assessmentBuffers.set(safePath, buffer);
+            assessmentEntries.push({ safePath, buffer });
+        }
+
+        const assessmentTestEntries = assessmentEntries.filter(
+            (entry) => path.posix.basename(entry.safePath) === 'assessment-test.qti.xml'
+        );
+        if (assessmentTestEntries.length !== 1) {
+            return NextResponse.json(
+                { error: 'assessment-test.qti.xml を1つだけ含めてください' },
+                { status: 400 }
+            );
+        }
+        const assessmentTestEntry = assessmentTestEntries[0];
+
+        const resultEntries: Array<{ safeName: string; buffer: Buffer }> = [];
+        const resultNameSet = new Set<string>();
+        for (const file of results) {
+            const baseName = path.basename(file.name || 'results.xml');
+            const safeName = sanitizeFileName(baseName);
+            if (resultNameSet.has(safeName)) {
+                return NextResponse.json(
+                    { error: `results に重複したファイル名があります: ${safeName}` },
+                    { status: 400 }
+                );
+            }
+            const buffer = Buffer.from(await file.arrayBuffer());
+            resultNameSet.add(safeName);
+            resultEntries.push({ safeName, buffer });
+        }
+
+        const assessmentXmls = new Map<string, string>();
+        for (const entry of assessmentEntries) {
+            assessmentXmls.set(entry.safePath, entry.buffer.toString('utf-8'));
+        }
+
+        const validation = validateAssessmentConsistency({
+            assessmentTestPath: assessmentTestEntry.safePath,
+            assessmentTestXml: assessmentTestEntry.buffer.toString('utf-8'),
+            assessmentFiles: assessmentXmls,
+            resultFiles: resultEntries.map((entry) => ({
+                name: entry.safeName,
+                xml: entry.buffer.toString('utf-8'),
+            })),
+        });
         if (!validation.isValid) {
             return NextResponse.json(
                 { error: validation.errors.join('\n') },
                 { status: 400 }
             );
         }
+        const itemFiles = validation.itemRefs?.map((ref) => ref.resolvedHref) ?? [];
 
         const workspaceId = generateWorkspaceId();
         const workspaceDir = await ensureWorkspaceSubdirs(workspaceId);
 
-        const itemFiles: string[] = [];
-        for (const entry of itemBuffers) {
-            const target = path.join(workspaceDir, 'items', entry.safeName);
+        for (const entry of assessmentEntries) {
+            const target = path.join(workspaceDir, 'assessment', entry.safePath);
+            await fs.promises.mkdir(path.dirname(target), { recursive: true });
             await fs.promises.writeFile(target, entry.buffer);
-            itemFiles.push(entry.safeName);
         }
 
         const resultFiles: string[] = [];
-        for (const entry of resultBuffers) {
+        for (const entry of resultEntries) {
             const target = path.join(workspaceDir, 'results', entry.safeName);
             await fs.promises.writeFile(target, entry.buffer);
             resultFiles.push(entry.safeName);
         }
-
-        const mappingTarget = path.join(workspaceDir, mappingName);
-        await fs.promises.writeFile(mappingTarget, mappingBuffer);
 
         const now = new Date().toISOString();
         const workspace: QtiWorkspace = {
@@ -74,8 +145,8 @@ export async function POST(request: NextRequest) {
             createdAt: now,
             updatedAt: now,
             itemFiles,
+            assessmentTestFile: assessmentTestEntry.safePath,
             resultFiles,
-            mappingFile: mappingName,
             itemCount: itemFiles.length,
             resultCount: resultFiles.length,
         };

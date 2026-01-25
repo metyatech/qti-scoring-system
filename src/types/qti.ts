@@ -5,8 +5,8 @@ export interface QtiWorkspace {
   createdAt: string;
   updatedAt: string;
   itemFiles: string[];
+  assessmentTestFile: string;
   resultFiles: string[];
-  mappingFile: string;
   itemCount: number;
   resultCount: number;
 }

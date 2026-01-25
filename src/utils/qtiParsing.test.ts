@@ -1,24 +1,115 @@
 import { describe, expect, it } from 'vitest';
-import { parseMappingCsv, parseQtiItemXml, parseQtiResultsXml } from '@/utils/qtiParsing';
+import {
+  parseAssessmentTestXml,
+  parseQtiItemXml,
+  parseQtiResultsXml,
+  remapResultToAssessmentItems,
+  resolveAssessmentHref,
+} from '@/utils/qtiParsing';
 
-describe('parseMappingCsv', () => {
-  it('parses mapping csv with BOM', () => {
-    const csv = '\uFEFFresultItemIdentifier,itemIdentifier\nQ1,item-1\nQ2,item-2';
-    const mapping = parseMappingCsv(csv);
-    expect(mapping.resultToItem.get('Q1')).toBe('item-1');
-    expect(mapping.itemToResult.get('item-2')).toBe('Q2');
+describe('assessmentTest mapping helpers', () => {
+  it('parses assessmentTest item refs in order', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-test xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="assessment-test" title="Assessment Test">
+  <qti-test-part identifier="part-1" navigation-mode="linear" submission-mode="individual">
+    <qti-assessment-section identifier="section-1" title="Section 1" visible="true">
+      <qti-assessment-item-ref identifier="item-1" href="items/item-1.qti.xml"/>
+      <qti-assessment-item-ref identifier="item-2" href="items/item-2.qti.xml"/>
+    </qti-assessment-section>
+  </qti-test-part>
+</qti-assessment-test>`;
+    const refs = parseAssessmentTestXml(xml);
+    expect(refs).toHaveLength(2);
+    expect(refs[0]).toEqual({ identifier: 'item-1', href: 'items/item-1.qti.xml' });
+    expect(refs[1]).toEqual({ identifier: 'item-2', href: 'items/item-2.qti.xml' });
   });
 
-  it('accepts header with extra whitespace', () => {
-    const csv = 'resultItemIdentifier, itemIdentifier\nQ1,item-1';
-    const mapping = parseMappingCsv(csv);
-    expect(mapping.resultToItem.get('Q1')).toBe('item-1');
+  it('resolves href relative to assessmentTest location', () => {
+    const resolved = resolveAssessmentHref('qti/assessment-test.qti.xml', 'items/item-1.qti.xml');
+    expect(resolved).toBe('qti/items/item-1.qti.xml');
   });
 
-  it('parses quoted fields with commas', () => {
-    const csv = 'resultItemIdentifier,itemIdentifier\nQ1,"item,one"';
-    const mapping = parseMappingCsv(csv);
-    expect(mapping.resultToItem.get('Q1')).toBe('item,one');
+  it('rejects traversal in href', () => {
+    expect(() => resolveAssessmentHref('assessment-test.qti.xml', '../item.qti.xml')).toThrow();
+  });
+
+  it('remaps by sequenceIndex, identifier, and Q-number fallback', () => {
+    const itemRefs = [
+      { identifier: 'item-1', href: 'item-1.qti.xml' },
+      { identifier: 'item-2', href: 'item-2.qti.xml' },
+    ];
+    const result = parseQtiResultsXml(
+      `<?xml version="1.0" encoding="UTF-8"?>
+<assessmentResult xmlns="http://www.imsglobal.org/xsd/imsqti_result_v3p0">
+  <context sourcedId="candidate-1" />
+  <itemResult identifier="Q1" sequenceIndex="1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final">
+    <responseVariable identifier="RESPONSE" cardinality="single" baseType="string">
+      <candidateResponse><value>a</value></candidateResponse>
+    </responseVariable>
+  </itemResult>
+  <itemResult identifier="item-2" sequenceIndex="2" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final">
+    <responseVariable identifier="RESPONSE" cardinality="single" baseType="string">
+      <candidateResponse><value>b</value></candidateResponse>
+    </responseVariable>
+  </itemResult>
+</assessmentResult>`,
+      'results.xml'
+    );
+    const remapped = remapResultToAssessmentItems(result, itemRefs);
+    expect(remapped.missingResultIdentifiers).toHaveLength(0);
+    expect(remapped.duplicateItemIdentifiers).toHaveLength(0);
+    expect(Object.keys(remapped.mappedItemResults)).toEqual(['item-1', 'item-2']);
+  });
+
+  it('reports missing identifiers when mapping fails', () => {
+    const itemRefs = [{ identifier: 'item-1', href: 'item-1.qti.xml' }];
+    const result = parseQtiResultsXml(
+      `<?xml version="1.0" encoding="UTF-8"?>
+<assessmentResult xmlns="http://www.imsglobal.org/xsd/imsqti_result_v3p0">
+  <context sourcedId="candidate-1" />
+  <itemResult identifier="X1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final">
+    <responseVariable identifier="RESPONSE" cardinality="single" baseType="string">
+      <candidateResponse><value>a</value></candidateResponse>
+    </responseVariable>
+  </itemResult>
+</assessmentResult>`,
+      'results.xml'
+    );
+    const remapped = remapResultToAssessmentItems(result, itemRefs);
+    expect(remapped.missingResultIdentifiers).toEqual(['X1']);
+  });
+
+  it('uses Q-number fallback when sequenceIndex is absent', () => {
+    const itemRefs = [
+      { identifier: 'item-1', href: 'item-1.qti.xml' },
+      { identifier: 'item-2', href: 'item-2.qti.xml' },
+    ];
+    const result = parseQtiResultsXml(
+      `<?xml version="1.0" encoding="UTF-8"?>
+<assessmentResult xmlns="http://www.imsglobal.org/xsd/imsqti_result_v3p0">
+  <context sourcedId="candidate-1" />
+  <itemResult identifier="Q2" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final" />
+</assessmentResult>`,
+      'results.xml'
+    );
+    const remapped = remapResultToAssessmentItems(result, itemRefs);
+    expect(remapped.missingResultIdentifiers).toHaveLength(0);
+    expect(Object.keys(remapped.mappedItemResults)).toEqual(['item-2']);
+  });
+
+  it('detects duplicate mapping targets', () => {
+    const itemRefs = [{ identifier: 'item-1', href: 'item-1.qti.xml' }];
+    const result = parseQtiResultsXml(
+      `<?xml version="1.0" encoding="UTF-8"?>
+<assessmentResult xmlns="http://www.imsglobal.org/xsd/imsqti_result_v3p0">
+  <context sourcedId="candidate-1" />
+  <itemResult identifier="Q1" sequenceIndex="1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final" />
+  <itemResult identifier="item-1" sequenceIndex="1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final" />
+</assessmentResult>`,
+      'results.xml'
+    );
+    const remapped = remapResultToAssessmentItems(result, itemRefs);
+    expect(remapped.duplicateItemIdentifiers).toContain('item-1');
   });
 });
 
@@ -109,6 +200,7 @@ describe('parseQtiResultsXml', () => {
     const result = parseQtiResultsXml(xml, 'results.xml');
     expect(result.candidateName).toBe('Sample User');
     const itemResult = result.itemResults['Q1'];
+    expect(itemResult.sequenceIndex).toBe(1);
     expect(itemResult.response).toBe('answer');
     expect(itemResult.score).toBe(1);
     expect(itemResult.comment).toBe('Good');
@@ -132,5 +224,17 @@ describe('parseQtiResultsXml', () => {
     const result = parseQtiResultsXml(xml, 'results.xml');
     const itemResult = result.itemResults['Q2'];
     expect(itemResult.response).toEqual(['H2O', 'water']);
+  });
+
+  it('drops invalid sequenceIndex values', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<assessmentResult xmlns="http://www.imsglobal.org/xsd/imsqti_result_v3p0">
+  <context sourcedId="candidate-1"></context>
+  <itemResult identifier="Q1" sequenceIndex="0" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final" />
+  <itemResult identifier="Q2" sequenceIndex="x" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final" />
+</assessmentResult>`;
+    const result = parseQtiResultsXml(xml, 'results.xml');
+    expect(result.itemResults['Q1'].sequenceIndex).toBeUndefined();
+    expect(result.itemResults['Q2'].sequenceIndex).toBeUndefined();
   });
 });

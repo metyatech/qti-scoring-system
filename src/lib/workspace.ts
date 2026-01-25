@@ -46,6 +46,8 @@ export const getWorkspaceDir = (id: string) => path.join(DATA_DIR, id);
 
 export const getWorkspaceMetaPath = (id: string) => path.join(getWorkspaceDir(id), WORKSPACE_META);
 
+export const getAssessmentDir = (id: string) => path.join(getWorkspaceDir(id), 'assessment');
+
 export const readWorkspace = async (id: string): Promise<QtiWorkspace | null> => {
   ensureDataDir();
   try {
@@ -134,6 +136,7 @@ export const updateResultXml = async (id: string, resultFile: string, xml: strin
 export const ensureWorkspaceSubdirs = async (id: string) => {
   ensureDataDir();
   const workspaceDir = getWorkspaceDir(id);
+  await fs.promises.mkdir(path.join(workspaceDir, 'assessment'), { recursive: true });
   await fs.promises.mkdir(path.join(workspaceDir, 'items'), { recursive: true });
   await fs.promises.mkdir(path.join(workspaceDir, 'results'), { recursive: true });
   return workspaceDir;
@@ -141,3 +144,17 @@ export const ensureWorkspaceSubdirs = async (id: string) => {
 
 export const sanitizeFileName = (name: string) =>
   name.replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim();
+
+export const sanitizeRelativePath = (value: string) => {
+  const replaced = value.replace(/\\/g, '/').trim();
+  const withoutDrive = replaced.replace(/^[A-Za-z]:/, '');
+  const stripped = withoutDrive.replace(/^\/+/, '');
+  const normalized = path.posix.normalize(stripped);
+  if (!normalized || normalized === '.') {
+    throw new Error('相対パスが空です');
+  }
+  if (normalized.startsWith('..') || normalized.includes('/..')) {
+    throw new Error(`不正な相対パスです: ${value}`);
+  }
+  return normalized;
+};

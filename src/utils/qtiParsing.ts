@@ -23,6 +23,7 @@ export interface QtiItem {
 
 export interface QtiItemResult {
   resultIdentifier: string;
+  sequenceIndex?: number;
   response: string | string[] | null;
   score?: number;
   comment?: string;
@@ -34,6 +35,17 @@ export interface QtiResult {
   sourcedId: string;
   candidateName: string;
   itemResults: Record<string, QtiItemResult>;
+}
+
+export interface AssessmentItemRef {
+  identifier: string;
+  href: string;
+}
+
+export interface RemapResult {
+  mappedItemResults: Record<string, QtiItemResult>;
+  missingResultIdentifiers: string[];
+  duplicateItemIdentifiers: string[];
 }
 
 const escapeHtml = (value: string) =>
@@ -167,6 +179,13 @@ export const parseQtiItemXml = (xml: string): QtiItem => {
   };
 };
 
+const parsePositiveInteger = (value: string | null): number | undefined => {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) return undefined;
+  return parsed;
+};
+
 export const parseQtiResultsXml = (xml: string, fileName: string): QtiResult => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'application/xml');
@@ -189,6 +208,7 @@ export const parseQtiResultsXml = (xml: string, fileName: string): QtiResult => 
   const itemResultNodes = getElementsByLocalName(root, 'itemResult');
   for (const itemResult of itemResultNodes) {
     const resultIdentifier = itemResult.getAttribute('identifier') ?? '';
+    const sequenceIndex = parsePositiveInteger(itemResult.getAttribute('sequenceIndex'));
     const responseVariable = getElementsByLocalName(itemResult, 'responseVariable')
       .find((rv) => rv.getAttribute('identifier') === 'RESPONSE');
     let response: string | string[] | null = null;
@@ -220,6 +240,7 @@ export const parseQtiResultsXml = (xml: string, fileName: string): QtiResult => 
 
     itemResults[resultIdentifier] = {
       resultIdentifier,
+      sequenceIndex,
       response,
       score: scoreValue ? Number(scoreValue) : undefined,
       comment: commentValue ?? undefined,
@@ -233,6 +254,98 @@ export const parseQtiResultsXml = (xml: string, fileName: string): QtiResult => 
     candidateName,
     itemResults,
   };
+};
+
+export const parseAssessmentTestXml = (xml: string): AssessmentItemRef[] => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, 'application/xml');
+  const root = doc.documentElement;
+  if (root.nodeName === 'parsererror') {
+    throw new Error('assessmentTest XML の解析に失敗しました');
+  }
+  if (root.localName !== 'qti-assessment-test') {
+    throw new Error('assessmentTest のルート要素が不正です');
+  }
+  const refNodes = getElementsByLocalName(root, 'qti-assessment-item-ref');
+  const itemRefs = refNodes.map((node) => {
+    const identifier = node.getAttribute('identifier') ?? '';
+    const href = node.getAttribute('href') ?? '';
+    return { identifier, href };
+  });
+  if (itemRefs.length === 0) {
+    throw new Error('assessmentTest に itemRef がありません');
+  }
+  const missing = itemRefs.filter((ref) => !ref.identifier || !ref.href);
+  if (missing.length > 0) {
+    throw new Error('assessmentTest の itemRef に identifier / href がありません');
+  }
+  return itemRefs;
+};
+
+const normalizeRelativePath = (value: string): string => {
+  const parts = value.replace(/\\/g, '/').split('/');
+  const stack: string[] = [];
+  for (const part of parts) {
+    if (!part || part === '.') continue;
+    if (part === '..') {
+      throw new Error(`不正な相対パスです: ${value}`);
+    }
+    stack.push(part);
+  }
+  return stack.join('/');
+};
+
+export const resolveAssessmentHref = (assessmentTestPath: string, href: string): string => {
+  const testPath = normalizeRelativePath(assessmentTestPath);
+  const baseDirParts = testPath.split('/');
+  baseDirParts.pop();
+  const baseDir = baseDirParts.join('/');
+  const combined = baseDir ? `${baseDir}/${href}` : href;
+  return normalizeRelativePath(combined);
+};
+
+export const remapResultToAssessmentItems = (
+  result: QtiResult,
+  itemRefs: AssessmentItemRef[]
+): RemapResult => {
+  const mappedItemResults: Record<string, QtiItemResult> = {};
+  const missingResultIdentifiers: string[] = [];
+  const duplicateItemIdentifiers: string[] = [];
+  const itemIdentifiers = new Map<string, number>();
+  itemRefs.forEach((ref, index) => itemIdentifiers.set(ref.identifier, index + 1));
+  const itemCount = itemRefs.length;
+
+  const mapByIndex = (index: number | undefined) => {
+    if (!index || index < 1 || index > itemCount) return null;
+    return itemRefs[index - 1].identifier;
+  };
+
+  const mapByQ = (resultIdentifier: string) => {
+    const match = resultIdentifier.match(/^Q(\d+)$/i);
+    if (!match) return null;
+    const index = Number(match[1]);
+    return mapByIndex(index);
+  };
+
+  for (const itemResult of Object.values(result.itemResults)) {
+    const bySequence = mapByIndex(itemResult.sequenceIndex);
+    const byIdentifier = itemIdentifiers.has(itemResult.resultIdentifier)
+      ? itemResult.resultIdentifier
+      : null;
+    const byQ = mapByQ(itemResult.resultIdentifier);
+    const itemIdentifier = bySequence || byIdentifier || byQ;
+    if (!itemIdentifier) {
+      missingResultIdentifiers.push(itemResult.resultIdentifier);
+      continue;
+    }
+    if (mappedItemResults[itemIdentifier]) {
+      duplicateItemIdentifiers.push(itemIdentifier);
+      continue;
+    }
+    mappedItemResults[itemIdentifier] = itemResult;
+  }
+
+  return { mappedItemResults, missingResultIdentifiers, duplicateItemIdentifiers };
 };
 
 export const parseMappingCsv = (csv: string) => {

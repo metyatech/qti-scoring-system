@@ -13,9 +13,8 @@ const resolveTsxCli = (toolsRoot: string) =>
 
 export const applyQtiResultsUpdate = async (params: {
   resultsPath: string;
-  itemPaths: string[];
+  assessmentTestPath: string;
   scoringPath: string;
-  mappingPath?: string;
   preserveMet?: boolean;
 }) => {
   const toolsRoot = resolveToolsRoot();
@@ -32,26 +31,29 @@ export const applyQtiResultsUpdate = async (params: {
     throw new Error(`apply-to-qti-results CLI が見つかりません: ${applyCli}`);
   }
 
-  const args: string[] = [tsxCli, applyCli, '--results', params.resultsPath, '--scoring', params.scoringPath];
-  if (params.mappingPath) {
-    args.push('--mapping', params.mappingPath);
-  }
-  for (const itemPath of params.itemPaths) {
-    args.push('--item', itemPath);
-  }
+  const args: string[] = [
+    tsxCli,
+    applyCli,
+    '--results',
+    params.resultsPath,
+    '--assessment-test',
+    params.assessmentTestPath,
+    '--scoring',
+    params.scoringPath,
+  ];
   if (params.preserveMet) {
     args.push('--preserve-met');
   }
 
   try {
-    const { stdout, stderr } = await execFileAsync('node', args, {
+    const execResult = await execFileAsync('node', args, {
       cwd: toolsRoot,
       maxBuffer: 10 * 1024 * 1024,
     });
-    if (stderr) {
-      console.warn('apply-to-qti-results stderr:', stderr);
+    if (execResult.stderr) {
+      console.warn('apply-to-qti-results stderr:', execResult.stderr);
     }
-    return stdout;
+    return await fs.promises.readFile(params.resultsPath, 'utf-8');
   } catch (error) {
     const err = error as { stdout?: string; stderr?: string; message?: string };
     const raw = err.stdout || '';
