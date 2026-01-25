@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import JSZip from "jszip";
 import { QtiWorkspace } from "@/types/qti";
 import { highlightCodeBlocks } from "@/utils/highlight";
+import { rewriteHtmlImageSources } from "@/utils/assetUrl";
 import ExplanationPanel from "@/components/ExplanationPanel";
 import {
   QtiItem,
@@ -71,7 +72,19 @@ export default function WorkspacePage() {
           }
           return item;
         });
-        setItems(parsedItems);
+        const itemsWithResolvedAssets = parsedItems.map((item, index) => {
+          const baseFilePath = ws.itemFiles[index];
+          const promptHtml = rewriteHtmlImageSources(item.promptHtml, ws.id, baseFilePath);
+          const candidateExplanationHtml = item.candidateExplanationHtml
+            ? rewriteHtmlImageSources(item.candidateExplanationHtml, ws.id, baseFilePath)
+            : null;
+          return {
+            ...item,
+            promptHtml,
+            candidateExplanationHtml,
+          };
+        });
+        setItems(itemsWithResolvedAssets);
 
         const resultTexts = await Promise.all(
           ws.resultFiles.map((name) => fetchFileText(ws.id, "results", name))

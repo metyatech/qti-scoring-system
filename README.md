@@ -48,6 +48,7 @@ npm run dev
 - `qti-assessment-item` がルートの QTI 3.0 item
 - 採点基準は `qti-rubric-block view="scorer"` に `[<points>] <criterion>` 形式で記述
 - item の `identifier` は assessment-test の `identifier` と一致している必要がある
+- `qti-img@src` で参照する画像ファイルも同じフォルダ構成で取り込む（相対パスで解決されます）
 
 ### QTI Results Reporting XML
 - `assessmentResult` がルートの QTI 3.0 Results Reporting

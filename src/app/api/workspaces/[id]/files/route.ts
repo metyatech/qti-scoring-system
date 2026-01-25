@@ -18,6 +18,15 @@ const resolveContentType = (filePath: string) => {
   const ext = path.extname(filePath).toLowerCase();
   if (ext === '.csv') return 'text/csv; charset=utf-8';
   if (ext === '.xml') return 'application/xml; charset=utf-8';
+  if (ext === '.png') return 'image/png';
+  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
+  if (ext === '.gif') return 'image/gif';
+  if (ext === '.webp') return 'image/webp';
+  if (ext === '.svg') return 'image/svg+xml';
+  if (ext === '.bmp') return 'image/bmp';
+  if (ext === '.ico') return 'image/x-icon';
+  if (ext === '.txt') return 'text/plain; charset=utf-8';
+  if (ext === '.json') return 'application/json; charset=utf-8';
   return 'application/octet-stream';
 };
 
@@ -46,7 +55,8 @@ export async function GET(
       return NextResponse.json({ error: 'ファイルが見つかりません' }, { status: 404 });
     }
 
-    const content = await fs.promises.readFile(filePath, 'utf-8');
+    const buffer = await fs.promises.readFile(filePath);
+    const content = new Uint8Array(buffer);
     const contentType = resolveContentType(filePath);
     const fallbackName = sanitizeFileName(path.basename(safeRelPath));
     return new NextResponse(content, {
