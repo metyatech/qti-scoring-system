@@ -42,7 +42,7 @@ describe('highlightCodeBlocks', () => {
   it('skips highlighting when blanks are present inside code', () => {
     document.body.innerHTML = `
       <div id="root">
-        <pre><code>const <span class="qti-blank" data-blank="1"></span> = 1;</code></pre>
+        <pre><code>const <input class="qti-blank-input" data-blank="1" /> = 1;</code></pre>
       </div>
     `;
     const root = document.getElementById('root');
@@ -52,7 +52,7 @@ describe('highlightCodeBlocks', () => {
     const code = root.querySelector('pre code') as HTMLElement | null;
     expect(code).not.toBeNull();
     expect(code?.dataset.hljs).toBe('skip');
-    expect(code?.querySelector('.qti-blank')).not.toBeNull();
+    expect(code?.querySelector('.qti-blank-input')).not.toBeNull();
     expect(code?.classList.contains('hljs')).toBe(false);
   });
 

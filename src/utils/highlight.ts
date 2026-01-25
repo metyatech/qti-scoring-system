@@ -17,7 +17,7 @@ export const highlightCodeBlocks = (root: ParentNode) => {
   blocks.forEach((block) => {
     const el = block as HTMLElement;
     if (el.dataset.hljs === '1' || el.dataset.hljs === 'skip') return;
-    if (el.querySelector('.qti-blank')) {
+    if (el.querySelector('.qti-blank, .qti-blank-input')) {
       el.dataset.hljs = 'skip';
       return;
     }

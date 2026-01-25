@@ -166,7 +166,8 @@ describe('parseQtiItemXml', () => {
 </qti-assessment-item>`;
     const item = parseQtiItemXml(xml);
     expect(item.type).toBe('cloze');
-    expect(item.promptHtml).toContain('qti-blank');
+    expect(item.promptHtml).toContain('qti-blank-input');
+    expect(item.promptHtml).toContain('<input');
   });
 
   it('parses explanation from modal feedback', () => {

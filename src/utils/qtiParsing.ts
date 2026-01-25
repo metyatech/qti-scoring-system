@@ -176,7 +176,7 @@ const renderNode = (node: Node, blankCounter?: { value: number }): string => {
     }
     case 'qti-text-entry-interaction': {
       const idx = blankCounter ? ++blankCounter.value : 0;
-      return `<span class="qti-blank" data-blank="${idx}"></span>`;
+      return `<input class="qti-blank-input" data-blank="${idx}" type="text" disabled aria-label="blank ${idx}" />`;
     }
     case 'qti-extended-text-interaction':
       return '<span class="qti-extended-placeholder">（記述）</span>';
