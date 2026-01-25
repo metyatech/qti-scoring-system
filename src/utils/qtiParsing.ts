@@ -98,9 +98,60 @@ const renderNode = (node: Node, blankCounter?: { value: number }): string => {
   }
   const el = node as Element;
   const name = el.localName;
+  const renderChildren = () =>
+    Array.from(el.childNodes).map((child) => renderNode(child, blankCounter)).join('');
   switch (name) {
     case 'qti-p':
-      return `<p>${Array.from(el.childNodes).map((child) => renderNode(child, blankCounter)).join('')}</p>`;
+      return `<p>${renderChildren()}</p>`;
+    case 'qti-h3':
+    case 'qti-h4':
+    case 'qti-h5':
+    case 'qti-h6': {
+      const level = name.slice(-2);
+      return `<${level}>${renderChildren()}</${level}>`;
+    }
+    case 'qti-em':
+      return `<em>${renderChildren()}</em>`;
+    case 'qti-strong':
+      return `<strong>${renderChildren()}</strong>`;
+    case 'qti-del':
+      return `<del>${renderChildren()}</del>`;
+    case 'qti-a': {
+      const href = el.getAttribute('href');
+      const title = el.getAttribute('title');
+      const hrefAttr = href ? ` href="${escapeHtml(href)}"` : '';
+      const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
+      return `<a${hrefAttr}${titleAttr}>${renderChildren()}</a>`;
+    }
+    case 'qti-code':
+      return `<code>${renderChildren()}</code>`;
+    case 'qti-pre':
+      return `<pre>${renderChildren()}</pre>`;
+    case 'qti-blockquote':
+      return `<blockquote>${renderChildren()}</blockquote>`;
+    case 'qti-ul':
+      return `<ul>${renderChildren()}</ul>`;
+    case 'qti-ol': {
+      const start = el.getAttribute('start');
+      const startAttr = start ? ` start="${escapeHtml(start)}"` : '';
+      return `<ol${startAttr}>${renderChildren()}</ol>`;
+    }
+    case 'qti-li':
+      return `<li>${renderChildren()}</li>`;
+    case 'qti-table':
+      return `<table>${renderChildren()}</table>`;
+    case 'qti-thead':
+      return `<thead>${renderChildren()}</thead>`;
+    case 'qti-tbody':
+      return `<tbody>${renderChildren()}</tbody>`;
+    case 'qti-tr':
+      return `<tr>${renderChildren()}</tr>`;
+    case 'qti-th':
+      return `<th>${renderChildren()}</th>`;
+    case 'qti-td':
+      return `<td>${renderChildren()}</td>`;
+    case 'qti-hr':
+      return '<hr />';
     case 'qti-img': {
       const src = el.getAttribute('src') ?? '';
       const alt = el.getAttribute('alt') ?? '';
@@ -128,7 +179,7 @@ const renderNode = (node: Node, blankCounter?: { value: number }): string => {
     case 'qti-rubric-block':
       return '';
     default:
-      return Array.from(el.childNodes).map((child) => renderNode(child, blankCounter)).join('');
+      return renderChildren();
   }
 };
 

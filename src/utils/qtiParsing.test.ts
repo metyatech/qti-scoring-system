@@ -168,6 +168,66 @@ describe('parseQtiItemXml', () => {
     expect(item.type).toBe('cloze');
     expect(item.promptHtml).toContain('qti-blank');
   });
+
+  it('renders all mapped QTI flow elements', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-flow" title="Flow" adaptive="false" time-dependent="false">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
+  <qti-item-body>
+    <qti-h3>Heading 3</qti-h3>
+    <qti-h4>Heading 4</qti-h4>
+    <qti-h5>Heading 5</qti-h5>
+    <qti-h6>Heading 6</qti-h6>
+    <qti-p>
+      Text <qti-em>em</qti-em> <qti-strong>strong</qti-strong> <qti-del>del</qti-del>
+      <qti-a href="https://example.com" title="Example">link</qti-a>
+      <qti-code>inline()</qti-code>
+    </qti-p>
+    <qti-pre><qti-code>const x = 1;</qti-code></qti-pre>
+    <qti-blockquote><qti-p>Quote</qti-p></qti-blockquote>
+    <qti-ul>
+      <qti-li>[ ] Task</qti-li>
+      <qti-li>Item</qti-li>
+    </qti-ul>
+    <qti-ol start="3">
+      <qti-li>Third</qti-li>
+    </qti-ol>
+    <qti-table>
+      <qti-thead>
+        <qti-tr><qti-th>H</qti-th></qti-tr>
+      </qti-thead>
+      <qti-tbody>
+        <qti-tr><qti-td>D</qti-td></qti-tr>
+      </qti-tbody>
+    </qti-table>
+    <qti-hr />
+    <qti-p><qti-img src="img.png" alt="alt" title="title" /></qti-p>
+  </qti-item-body>
+</qti-assessment-item>`;
+    const item = parseQtiItemXml(xml);
+    expect(item.type).toBe('descriptive');
+    expect(item.promptHtml).toContain('<h3>Heading 3</h3>');
+    expect(item.promptHtml).toContain('<h4>Heading 4</h4>');
+    expect(item.promptHtml).toContain('<h5>Heading 5</h5>');
+    expect(item.promptHtml).toContain('<h6>Heading 6</h6>');
+    expect(item.promptHtml).toContain('<em>em</em>');
+    expect(item.promptHtml).toContain('<strong>strong</strong>');
+    expect(item.promptHtml).toContain('<del>del</del>');
+    expect(item.promptHtml).toContain('<a href="https://example.com" title="Example">link</a>');
+    expect(item.promptHtml).toContain('<code>inline()</code>');
+    expect(item.promptHtml).toContain('<pre><code>const x = 1;</code></pre>');
+    expect(item.promptHtml).toContain('<blockquote><p>Quote</p></blockquote>');
+    expect(item.promptHtml).toContain('<ul>');
+    expect(item.promptHtml).toContain('<li>[ ] Task</li>');
+    expect(item.promptHtml).toContain('<ol start="3">');
+    expect(item.promptHtml).toContain('<table>');
+    expect(item.promptHtml).toContain('<thead>');
+    expect(item.promptHtml).toContain('<tbody>');
+    expect(item.promptHtml).toContain('<th>H</th>');
+    expect(item.promptHtml).toContain('<td>D</td>');
+    expect(item.promptHtml).toContain('<hr />');
+    expect(item.promptHtml).toContain('<img src="img.png" alt="alt" title="title" />');
+  });
 });
 
 describe('parseQtiResultsXml', () => {
