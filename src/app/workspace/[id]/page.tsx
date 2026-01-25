@@ -6,6 +6,7 @@ import JSZip from "jszip";
 import { QtiWorkspace } from "@/types/qti";
 import { highlightCodeBlocks } from "@/utils/highlight";
 import { rewriteHtmlImageSources } from "@/utils/assetUrl";
+import { applyResponsesToPromptHtml } from "@/utils/qtiBlankResponses";
 import ExplanationPanel from "@/components/ExplanationPanel";
 import {
   QtiItem,
@@ -436,6 +437,10 @@ export default function WorkspacePage() {
           {items.map((item, index) => {
             const itemResult = currentResult.itemResults[item.identifier];
             const responseText = formatResponse(item, itemResult);
+            const displayPromptHtml =
+              item.type === "cloze"
+                ? applyResponsesToPromptHtml(item.promptHtml, itemResult?.response)
+                : item.promptHtml;
             const rubric = item.rubric;
             const comment = itemResult?.comment ?? "";
             return (
@@ -448,11 +453,13 @@ export default function WorkspacePage() {
                 </div>
                 <div
                   className="prose max-w-none qti-prompt"
-                  dangerouslySetInnerHTML={{ __html: item.promptHtml }}
+                  dangerouslySetInnerHTML={{ __html: displayPromptHtml }}
                 />
-                <div className="mt-4 bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500 text-sm text-gray-800 whitespace-pre-wrap">
-                  {responseText}
-                </div>
+                {item.type !== "cloze" && (
+                  <div className="mt-4 bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500 text-sm text-gray-800 whitespace-pre-wrap">
+                    {responseText}
+                  </div>
+                )}
 
                 {item.candidateExplanationHtml && (
                   <ExplanationPanel html={item.candidateExplanationHtml} />

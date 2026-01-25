@@ -36,9 +36,10 @@ describe('cloze blank layout styles', () => {
     const computed = getComputedStyle(input as HTMLInputElement);
     expect(computed.display).toBe('inline-block');
     expect(computed.width).toBe('6ch');
+    expect(computed.color).toBe('rgb(15, 23, 42)');
+    expect(Number(computed.fontWeight)).toBeGreaterThanOrEqual(600);
 
     container.remove();
     style.remove();
   });
 });
-

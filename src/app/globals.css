@@ -66,8 +66,9 @@ body {
 
 .qti-blank-input:disabled {
   opacity: 1;
-  color: inherit;
-  -webkit-text-fill-color: currentColor;
+  color: #0f172a;
+  -webkit-text-fill-color: #0f172a;
+  font-weight: 600;
 }
 
 .qti-extended-placeholder {
