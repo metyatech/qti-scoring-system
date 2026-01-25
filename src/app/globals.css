@@ -43,16 +43,25 @@ body {
 
 .qti-blank-input {
   display: inline-block;
-  min-width: 4.5rem;
-  height: 2rem;
-  padding: 0 0.45rem;
+  min-width: 0;
+  width: 6ch;
+  height: 1.9rem;
+  padding: 0 0.2rem;
   border: 2px solid #2563eb;
   border-radius: 0.375rem;
   background: #ffffff;
   color: #0f172a;
-  margin: 0 0.25rem;
-  vertical-align: middle;
+  margin: 0 0.15rem;
+  vertical-align: baseline;
   box-sizing: border-box;
+}
+
+.qti-prompt input.qti-blank-input {
+  display: inline-block;
+  width: 6ch;
+  min-width: 0;
+  margin: 0 0.15rem;
+  max-width: 100%;
 }
 
 .qti-blank-input:disabled {
@@ -88,6 +97,12 @@ body {
   color: inherit;
   padding: 0;
   border-radius: 0;
+}
+
+.qti-prompt pre.qti-pre-with-blanks code,
+.qti-prompt pre.qti-pre-with-blanks code.hljs {
+  display: inline;
+  padding: 0;
 }
 
 .qti-prompt :not(pre) > code,

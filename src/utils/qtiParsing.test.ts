@@ -168,6 +168,52 @@ describe('parseQtiItemXml', () => {
     expect(item.type).toBe('cloze');
     expect(item.promptHtml).toContain('qti-blank-input');
     expect(item.promptHtml).toContain('<input');
+    expect(item.promptHtml).not.toContain('<br');
+    expect(item.promptHtml).toContain('size="6"');
+  });
+
+  it('does not introduce line breaks around blanks inside qti-pre', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-pre" title="Pre" adaptive="false" time-dependent="false">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
+  <qti-item-body>
+    <qti-pre>
+      <qti-code>opacity: </qti-code>
+      <qti-text-entry-interaction response-identifier="RESPONSE"/>
+      <qti-code>;</qti-code>
+    </qti-pre>
+  </qti-item-body>
+</qti-assessment-item>`;
+    const item = parseQtiItemXml(xml);
+    expect(item.promptHtml).toContain('<pre class="qti-pre-with-blanks">');
+    expect(item.promptHtml).not.toMatch(/<\/code>\s*[\r\n]+\s*<input/);
+    expect(item.promptHtml).not.toMatch(/<input[^>]*>\s*[\r\n]+\s*<code/);
+    expect(item.promptHtml).toContain('opacity:</code><input');
+    expect(item.promptHtml).toContain('/><code>;');
+  });
+
+  it('preserves required newlines around standalone blanks in qti-pre', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-pre-newline" title="Pre Newline" adaptive="false" time-dependent="false">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
+  <qti-item-body>
+    <qti-pre><qti-code>} 
+
+</qti-code><qti-text-entry-interaction response-identifier="RESPONSE"/><qti-code>
+{
+}</qti-code></qti-pre>
+  </qti-item-body>
+</qti-assessment-item>`;
+    const item = parseQtiItemXml(xml);
+    const doc = new DOMParser().parseFromString(item.promptHtml, 'text/html');
+    const blank = doc.querySelector('input.qti-blank-input');
+    expect(blank).not.toBeNull();
+    const prevCode = blank?.previousElementSibling as HTMLElement | null;
+    const nextCode = blank?.nextElementSibling as HTMLElement | null;
+    expect(prevCode?.tagName).toBe('CODE');
+    expect(nextCode?.tagName).toBe('CODE');
+    expect((prevCode?.textContent ?? '').endsWith('\n')).toBe(true);
+    expect((nextCode?.textContent ?? '').startsWith('\n')).toBe(true);
   });
 
   it('parses explanation from modal feedback', () => {

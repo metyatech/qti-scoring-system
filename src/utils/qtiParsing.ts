@@ -104,17 +104,28 @@ const parseCandidateExplanation = (root: Element): string | null => {
   return null;
 };
 
-const renderNode = (node: Node, blankCounter?: { value: number }): string => {
+const renderNode = (
+  node: Node,
+  blankCounter?: { value: number },
+  inPre = false,
+  preserveWhitespace = false
+): string => {
   if (node.nodeType === Node.TEXT_NODE) {
-    return escapeHtml(node.textContent ?? '');
+    const text = node.textContent ?? '';
+    if (inPre && !preserveWhitespace && text.trim() === '') {
+      return '';
+    }
+    return escapeHtml(text);
   }
   if (node.nodeType !== Node.ELEMENT_NODE) {
     return '';
   }
   const el = node as Element;
   const name = el.localName;
-  const renderChildren = () =>
-    Array.from(el.childNodes).map((child) => renderNode(child, blankCounter)).join('');
+  const renderChildren = (nextInPre = inPre, nextPreserveWhitespace = preserveWhitespace) =>
+    Array.from(el.childNodes)
+      .map((child) => renderNode(child, blankCounter, nextInPre, nextPreserveWhitespace))
+      .join('');
   switch (name) {
     case 'qti-p':
       return `<p>${renderChildren()}</p>`;
@@ -139,9 +150,52 @@ const renderNode = (node: Node, blankCounter?: { value: number }): string => {
       return `<a${hrefAttr}${titleAttr}>${renderChildren()}</a>`;
     }
     case 'qti-code':
-      return `<code>${renderChildren()}</code>`;
-    case 'qti-pre':
-      return `<pre>${renderChildren()}</pre>`;
+      return `<code>${renderChildren(inPre, true)}</code>`;
+    case 'qti-pre': {
+      const isBlankInteraction = (child: Node) =>
+        child.nodeType === Node.ELEMENT_NODE &&
+        (child as Element).localName === 'qti-text-entry-interaction';
+      const significantNodes = Array.from(el.childNodes).filter((child) => {
+        if (child.nodeType !== Node.TEXT_NODE) return true;
+        return (child.textContent ?? '').trim() !== '';
+      });
+      const renderCodeInPre = (codeEl: Element, trimStart: boolean, trimEnd: boolean) => {
+        let inner = Array.from(codeEl.childNodes)
+          .map((child) => renderNode(child, blankCounter, true, true))
+          .join('');
+        if (trimStart) {
+          const leading = inner.match(/^\s+/)?.[0] ?? '';
+          if (leading && !leading.includes('\n') && !leading.includes('\r')) {
+            inner = inner.slice(leading.length);
+          }
+        }
+        if (trimEnd) {
+          const trailing = inner.match(/\s+$/)?.[0] ?? '';
+          if (trailing && !trailing.includes('\n') && !trailing.includes('\r')) {
+            inner = inner.slice(0, inner.length - trailing.length);
+          }
+        }
+        return `<code>${inner}</code>`;
+      };
+      const hasBlank = significantNodes.some(
+        (child) =>
+          child.nodeType === Node.ELEMENT_NODE &&
+          (child as Element).localName === 'qti-text-entry-interaction'
+      );
+      const rendered = significantNodes
+        .map((child, index) => {
+          if (child.nodeType === Node.ELEMENT_NODE && (child as Element).localName === 'qti-code') {
+            const prevBlank = index > 0 && isBlankInteraction(significantNodes[index - 1]);
+            const nextBlank =
+              index < significantNodes.length - 1 && isBlankInteraction(significantNodes[index + 1]);
+            return renderCodeInPre(child as Element, prevBlank, nextBlank);
+          }
+          return renderNode(child, blankCounter, true, false);
+        })
+        .join('');
+      const classAttr = hasBlank ? ' class="qti-pre-with-blanks"' : '';
+      return `<pre${classAttr}>${rendered}</pre>`;
+    }
     case 'qti-blockquote':
       return `<blockquote>${renderChildren()}</blockquote>`;
     case 'qti-ul':
@@ -176,7 +230,7 @@ const renderNode = (node: Node, blankCounter?: { value: number }): string => {
     }
     case 'qti-text-entry-interaction': {
       const idx = blankCounter ? ++blankCounter.value : 0;
-      return `<input class="qti-blank-input" data-blank="${idx}" type="text" disabled aria-label="blank ${idx}" />`;
+      return `<input class="qti-blank-input" data-blank="${idx}" type="text" size="6" disabled aria-label="blank ${idx}" />`;
     }
     case 'qti-extended-text-interaction':
       return '<span class="qti-extended-placeholder">（記述）</span>';
