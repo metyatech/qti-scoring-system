@@ -1,7 +1,11 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import WorkspaceSelector from '@/components/WorkspaceSelector';
+
+const WorkspaceSelector = dynamic(() => import('@/components/WorkspaceSelector'), {
+  ssr: false,
+});
 
 export default function Home() {
   const router = useRouter();
@@ -15,7 +19,10 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div
+      className="min-h-screen bg-gray-50 py-8"
+      data-expected-class="min-h-screen bg-gray-50 py-8"
+    >
       <WorkspaceSelector
         onSelectWorkspace={handleSelectWorkspace}
         onCreateNew={handleCreateNew}
