@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import JSZip from "jszip";
 import { QtiWorkspace } from "@/types/qti";
 import { highlightCodeBlocks } from "@/utils/highlight";
+import ExplanationPanel from "@/components/ExplanationPanel";
 import {
   QtiItem,
   QtiResult,
@@ -441,10 +442,7 @@ export default function WorkspacePage() {
                 </div>
 
                 {item.candidateExplanationHtml && (
-                  <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
-                    <div className="font-medium text-amber-800 mb-1">解説</div>
-                    <div dangerouslySetInnerHTML={{ __html: item.candidateExplanationHtml }} />
-                  </div>
+                  <ExplanationPanel html={item.candidateExplanationHtml} />
                 )}
 
                 {rubric.length > 0 && (
