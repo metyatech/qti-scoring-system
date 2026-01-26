@@ -16,6 +16,7 @@ import {
   parseQtiResultsXml,
   remapResultToAssessmentItems,
 } from "@/utils/qtiParsing";
+import { buildScoringItems } from "@/utils/scoringInput";
 
 const fetchFileText = async (workspaceId: string, kind: string, name: string) => {
   const res = await fetch(`/api/workspaces/${workspaceId}/files?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}`);
@@ -199,18 +200,18 @@ export default function WorkspacePage() {
     itemId: string,
     rubricOutcomes: Record<number, boolean>
   ) => {
-    const item = items.find((i) => i.identifier === itemId);
-    if (!item || item.rubric.length === 0) return;
-    const criteria = item.rubric.map((c) => ({
-      met: rubricOutcomes[c.index] ?? false,
-      criterionText: c.text,
-    }));
+    const scoringItems = buildScoringItems({
+      items,
+      result: currentResult,
+      override: { itemId, rubricOutcomes },
+    });
+    if (scoringItems.length === 0) return;
     await fetch(`/api/workspaces/${id}/results`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         resultFile,
-        items: [{ identifier: itemId, criteria }],
+        items: scoringItems,
       }),
     }).then(async (res) => {
       if (!res.ok) {
@@ -221,12 +222,18 @@ export default function WorkspacePage() {
   };
 
   const updateComment = async (resultFile: string, itemId: string, comment: string) => {
+    const scoringItems = buildScoringItems({
+      items,
+      result: currentResult,
+      override: { itemId, comment },
+    });
+    if (scoringItems.length === 0) return;
     await fetch(`/api/workspaces/${id}/results`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         resultFile,
-        items: [{ identifier: itemId, comment }],
+        items: scoringItems,
       }),
     }).then(async (res) => {
       if (!res.ok) {
