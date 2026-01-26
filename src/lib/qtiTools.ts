@@ -9,7 +9,18 @@ const require = createRequire(import.meta.url);
 
 const resolveToolsRoot = () => path.dirname(require.resolve('apply-to-qti-results/package.json'));
 
-const resolveTsxCli = () => require.resolve('tsx/dist/cli.mjs');
+const resolveTsxCli = () => {
+  const pkgPath = require.resolve('tsx/package.json');
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')) as {
+    bin?: string | Record<string, string>;
+  };
+  const bin =
+    typeof pkg.bin === 'string' ? pkg.bin : pkg.bin && 'tsx' in pkg.bin ? pkg.bin.tsx : undefined;
+  if (!bin) {
+    throw new Error('tsx の bin 設定が見つかりません');
+  }
+  return path.resolve(path.dirname(pkgPath), bin);
+};
 
 export const applyQtiResultsUpdate = async (params: {
   resultsPath: string;
