@@ -44,21 +44,18 @@ export const generateCsvReport = async (params: {
   const tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'qti-report-'));
   try {
     const sortedResults = [...assessmentResultPaths].sort();
-    for (const assessmentResultPath of sortedResults) {
-      await execFileAsync(
-        process.execPath,
-        [
-          cliPath,
-          '--assessment-test',
-          assessmentTestPath,
-          '--assessment-result',
-          assessmentResultPath,
-          '--out-dir',
-          tempRoot,
-        ],
-        { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 }
-      );
-    }
+    const args = [
+      cliPath,
+      '--assessment-test',
+      assessmentTestPath,
+      ...sortedResults.flatMap((resultPath) => ['--assessment-result', resultPath]),
+      '--out-dir',
+      tempRoot,
+    ];
+    await execFileAsync(process.execPath, args, {
+      cwd: process.cwd(),
+      maxBuffer: 10 * 1024 * 1024,
+    });
 
     const csvPath = path.join(tempRoot, 'report.csv');
     if (!fs.existsSync(csvPath)) {
