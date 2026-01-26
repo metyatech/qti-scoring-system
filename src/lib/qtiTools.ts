@@ -2,15 +2,31 @@ import path from 'path';
 import fs from 'fs';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { createRequire } from 'module';
 
 const execFileAsync = promisify(execFile);
-const require = createRequire(import.meta.url);
 
-const resolveToolsRoot = () => path.dirname(require.resolve('apply-to-qti-results/package.json'));
+const findPackageRoot = (packageName: string, startDir: string) => {
+  let current = startDir;
+  while (true) {
+    const candidate = path.join(current, 'node_modules', packageName);
+    if (fs.existsSync(path.join(candidate, 'package.json'))) {
+      return candidate;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  throw new Error(`package が見つかりません: ${packageName} (start: ${startDir})`);
+};
 
-const resolveTsxCli = () => {
-  const pkgPath = require.resolve('tsx/package.json');
+const resolveToolsRoot = (startDir: string = process.cwd()) =>
+  findPackageRoot('apply-to-qti-results', startDir);
+
+export const resolveTsxCliPath = (startDir: string = process.cwd()) => {
+  const tsxRoot = findPackageRoot('tsx', startDir);
+  const pkgPath = path.join(tsxRoot, 'package.json');
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')) as {
     bin?: string | Record<string, string>;
   };
@@ -19,7 +35,7 @@ const resolveTsxCli = () => {
   if (!bin) {
     throw new Error('tsx の bin 設定が見つかりません');
   }
-  return path.resolve(path.dirname(pkgPath), bin);
+  return path.resolve(tsxRoot, bin);
 };
 
 export const applyQtiResultsUpdate = async (params: {
@@ -29,7 +45,7 @@ export const applyQtiResultsUpdate = async (params: {
   preserveMet?: boolean;
 }) => {
   const toolsRoot = resolveToolsRoot();
-  const tsxCli = resolveTsxCli();
+  const tsxCli = resolveTsxCliPath();
   const applyCli = path.join(toolsRoot, 'src', 'cli.ts');
 
   if (!fs.existsSync(toolsRoot)) {
