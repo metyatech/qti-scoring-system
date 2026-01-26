@@ -327,6 +327,27 @@ export default function WorkspacePage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadCsv = async () => {
+    if (!workspace) return;
+    setError(null);
+    try {
+      const res = await fetch(`/api/workspaces/${workspace.id}/report/csv`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "CSV の生成に失敗しました");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${workspace.name} report.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "CSV の生成に失敗しました");
+    }
+  };
+
   if (loading) {
     return <div className="p-8 text-center text-gray-500">読み込み中...</div>;
   }
@@ -367,6 +388,12 @@ export default function WorkspacePage() {
             className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
           >
             結果XMLをダウンロード
+          </button>
+          <button
+            onClick={handleDownloadCsv}
+            className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700 transition-colors"
+          >
+            結果CSVをダウンロード
           </button>
           {saving && <span className="text-sm text-gray-500">更新中...</span>}
         </div>

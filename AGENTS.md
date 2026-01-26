@@ -93,6 +93,7 @@
 - Prefer existing internet-hosted tools/libraries for reusable functionality; if none exist, externalize the shared logic into a separate repository/module and reference it via remote dependency (never local filesystem paths).
 - 「既存に合わせる」よりも「理想的な状態（読みやすさ・保守性・一貫性・安全性）」を優先する。
 - ただし、目的と釣り合わない大改修や無関係な改善はしない。
+- 根本原因を修正できる場合は、場当たり的なフォールバックや回避策を追加しない（ノイズ/負債化するため）。
 - 不明点や判断が分かれる点は、独断で進めず確認する。
 - 推測だけで判断して進めない。根拠が不足している場合は確認する。
 - 原因・根拠を未確認のまま「可能性が高い」などの推測で実装・修正しない。まず事実確認し、確認できない場合はユーザーに確認する。
@@ -256,6 +257,14 @@ Write final responses to the user in Japanese unless the user requests otherwise
 # Naming consistency
 
 - 命名規則（大文字小文字、略語、区切り方）をリポジトリ内で一貫させ、混在があれば整合するようにリネームする。
+
+# User Identity and Accounts
+
+- The user's name is "metyatech".
+- Any external reference that uses the "metyatech" name (e.g., GitHub org/user, npm scope, repositories) is under the user's control.
+- The user has GitHub and npm accounts.
+- Use the `gh` CLI to verify GitHub details when needed.
+- When publishing, cloning, adding submodules, or splitting repositories, prefer the user's "metyatech" ownership unless explicitly instructed otherwise.
 
 ## Module system (ESM)
 
