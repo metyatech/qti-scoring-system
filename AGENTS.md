@@ -35,6 +35,16 @@
 - 各プロジェクトのルートに `AGENTS.md` を置く。
 - サブツリーに別プロジェクトがある場合のみ、そのルートに `AGENTS.md` を置く（同一プロジェクト内で重複配置しない）。
 
+# CLI behavior standards
+
+- Provide `--help`/`-h` with clear usage, options, and examples.
+- Provide `--version` so automation can pin or verify installed versions.
+- When the CLI reads or writes data, support stdin/stdout piping and allow output to be redirected (e.g., `--output` when files are created).
+- Offer a machine-readable output mode (e.g., `--json`) when the CLI emits structured data.
+- For actions that modify or delete data, provide a safe preview (`--dry-run`) and an explicit confirmation bypass (`--yes`/`--force`).
+- Provide controllable logging (`--quiet`, `--verbose`, or `--trace`) so users can diagnose failures without changing code.
+- Use deterministic exit codes (0 success, non-zero failure) and avoid silent fallbacks.
+
 ## コマンド実行
 
 - ユーザーが明示しない限り、コマンドにラッパーやパイプを付加しない。
@@ -150,6 +160,14 @@ Write final responses to the user in Japanese unless the user requests otherwise
 - 変更したリポジトリ内の手元検証を優先する（例: `npm run build`, `npm test`）。
 - 共通モジュール側の変更が利用側に影響しうる場合は、少なくとも1つの利用側リポジトリで動作確認（ビルド等）を行う。
 
+# Publication standards
+
+- Define a SemVer policy and document what counts as a breaking change.
+- Ensure release notes call out breaking changes and provide a migration path when needed.
+- Populate public package metadata (name, description, repository, issues, homepage, engines) for published artifacts.
+- Validate executable entrypoints and any required shebangs so published commands run after install.
+- Run dependency security checks appropriate to the ecosystem before release and address critical issues.
+
 # 品質（テスト・検証・エラーハンドリング）
 
 ## 方針
@@ -229,6 +247,10 @@ Write final responses to the user in Japanese unless the user requests otherwise
 # Naming consistency
 
 - 命名規則（大文字小文字、略語、区切り方）をリポジトリ内で一貫させ、混在があれば整合するようにリネームする。
+
+# Rule update transparency
+
+- When updating rules, summarize what changed in the rules (added/removed/modified items) in the final response.
 
 ## Module system (ESM)
 
