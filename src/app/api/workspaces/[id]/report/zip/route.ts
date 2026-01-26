@@ -3,7 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { readWorkspace, getWorkspaceDir, sanitizeFileName } from '@/lib/workspace';
 import { buildContentDisposition } from '@/lib/httpHeaders';
-import { generateCsvReport } from '@/lib/qtiReporter';
+import { generateReportOutput } from '@/lib/qtiReporter';
+import { createReportZip } from '@/lib/reportZip';
 
 export const runtime = 'nodejs';
 
@@ -27,29 +28,39 @@ export async function GET(
       return NextResponse.json({ error: 'assessmentTest が見つかりません' }, { status: 400 });
     }
 
-    const resultPaths = workspace.resultFiles
-      .map((file) => path.join(workspaceDir, 'results', file))
-      .filter((filePath) => fs.existsSync(filePath));
-    if (resultPaths.length === 0) {
+    const results = workspace.resultFiles
+      .map((file) => ({
+        path: path.join(workspaceDir, 'results', file),
+        name: file,
+      }))
+      .filter((entry) => fs.existsSync(entry.path));
+    if (results.length === 0) {
       return NextResponse.json({ error: '結果ファイルが見つかりません' }, { status: 404 });
     }
 
-    const csv = await generateCsvReport({
+    const reportOutput = await generateReportOutput({
       assessmentTestPath,
-      assessmentResultPaths: resultPaths,
+      assessmentResultPaths: results.map((entry) => entry.path),
     });
-    const safeName = sanitizeFileName(`${workspace.name} report.csv`);
-
-    return new NextResponse(csv, {
-      headers: {
-        'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': buildContentDisposition('report.csv', safeName),
-      },
-    });
+    try {
+      const zipBuffer = await createReportZip({
+        reportDir: reportOutput.outputDir,
+        results,
+      });
+      const safeName = sanitizeFileName(`${workspace.name} report.zip`);
+      return new NextResponse(zipBuffer, {
+        headers: {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': buildContentDisposition('report.zip', safeName),
+        },
+      });
+    } finally {
+      await reportOutput.cleanup();
+    }
   } catch (error) {
-    console.error('CSV 生成エラー:', error);
+    console.error('レポート ZIP 生成エラー:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'CSV の生成に失敗しました' },
+      { error: error instanceof Error ? error.message : 'レポート ZIP の生成に失敗しました' },
       { status: 500 }
     );
   }

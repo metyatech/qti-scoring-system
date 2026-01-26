@@ -61,8 +61,41 @@ export const generateCsvReport = async (params: {
     if (!fs.existsSync(csvPath)) {
       throw new Error('CSV の生成に失敗しました');
     }
-    return await fs.promises.readFile(csvPath, 'utf-8');
+  return await fs.promises.readFile(csvPath, 'utf-8');
   } finally {
     await fs.promises.rm(tempRoot, { recursive: true, force: true });
   }
+};
+
+export const generateReportOutput = async (params: {
+  assessmentTestPath: string;
+  assessmentResultPaths: string[];
+}) => {
+  const { assessmentTestPath, assessmentResultPaths } = params;
+  if (assessmentResultPaths.length === 0) {
+    throw new Error('assessmentResult が指定されていません');
+  }
+
+  const cliPath = resolveReporterCliPath();
+  const outputDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'qti-report-'));
+  const sortedResults = [...assessmentResultPaths].sort();
+  const args = [
+    cliPath,
+    '--assessment-test',
+    assessmentTestPath,
+    ...sortedResults.flatMap((resultPath) => ['--assessment-result', resultPath]),
+    '--out-dir',
+    outputDir,
+  ];
+  await execFileAsync(process.execPath, args, {
+    cwd: process.cwd(),
+    maxBuffer: 10 * 1024 * 1024,
+  });
+
+  return {
+    outputDir,
+    cleanup: async () => {
+      await fs.promises.rm(outputDir, { recursive: true, force: true });
+    },
+  };
 };

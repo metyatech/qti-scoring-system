@@ -9,8 +9,7 @@ QTI 3.0 の assessment item / Results Reporting を読み込み、採点とコ�
 - ✅ 受講者ごとの回答表示（前へ/次へナビゲーション）
 - ✅ 採点基準（rubric）に基づく採点
 - ✅ コメントの保存（Results Reporting の `COMMENT` outcome）
-- ✅ Results XML のダウンロード
-- ✅ 結果CSVのダウンロード
+- ✅ 結果レポート（HTML/CSV/Results XML）のZIPダウンロード
 
 ## 技術スタック
 
@@ -58,7 +57,7 @@ npm run dev
 ## 外部ツール連携
 
 Results XML の更新には `apply-to-qti-results` を使用します。
-結果CSVの生成には `qti-reporter` を使用します。
+結果レポートの生成には `qti-reporter` を使用します。
 
 `apply-to-qti-results` は GitHub 依存としてインストールされ、`node_modules` 経由で参照します。
 
