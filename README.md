@@ -58,13 +58,7 @@ npm run dev
 
 Results XML の更新には `apply-to-qti-results` を使用します。
 
-デフォルトでは `../apply-to-qti-results` を参照します。
-別の場所に置く場合は環境変数を設定してください。
-
-```
-APPLY_TO_QTI_RESULTS_DIR=<path>
-TSX_CLI_PATH=<path_to_tsx_cli>  # 任意
-```
+`apply-to-qti-results` は GitHub 依存としてインストールされ、`node_modules` 経由で参照します。
 
 ## 開発
 

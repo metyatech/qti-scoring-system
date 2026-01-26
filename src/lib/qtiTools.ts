@@ -2,14 +2,14 @@ import path from 'path';
 import fs from 'fs';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { createRequire } from 'module';
 
 const execFileAsync = promisify(execFile);
+const require = createRequire(import.meta.url);
 
-const resolveToolsRoot = () =>
-  process.env.APPLY_TO_QTI_RESULTS_DIR || path.resolve(process.cwd(), '..', 'apply-to-qti-results');
+const resolveToolsRoot = () => path.dirname(require.resolve('apply-to-qti-results/package.json'));
 
-const resolveTsxCli = (toolsRoot: string) =>
-  process.env.TSX_CLI_PATH || path.join(toolsRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
+const resolveTsxCli = () => require.resolve('tsx/dist/cli.mjs');
 
 export const applyQtiResultsUpdate = async (params: {
   resultsPath: string;
@@ -18,7 +18,7 @@ export const applyQtiResultsUpdate = async (params: {
   preserveMet?: boolean;
 }) => {
   const toolsRoot = resolveToolsRoot();
-  const tsxCli = resolveTsxCli(toolsRoot);
+  const tsxCli = resolveTsxCli();
   const applyCli = path.join(toolsRoot, 'src', 'cli.ts');
 
   if (!fs.existsSync(toolsRoot)) {

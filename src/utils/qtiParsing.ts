@@ -37,10 +37,12 @@ export interface QtiResult {
   itemResults: Record<string, QtiItemResult>;
 }
 
-export interface AssessmentItemRef {
-  identifier: string;
-  href: string;
-}
+import {
+  parseAssessmentTestXml as parseAssessmentTestXmlCore,
+  parseResultsXmlRaw,
+  resolveAssessmentHref as resolveAssessmentHrefCore,
+  type AssessmentItemRef,
+} from 'qti-xml-core';
 
 export interface RemapResult {
   mappedItemResults: Record<string, QtiItemResult>;
@@ -299,68 +301,41 @@ export const parseQtiItemXml = (xml: string): QtiItem => {
   };
 };
 
-const parsePositiveInteger = (value: string | null): number | undefined => {
-  if (!value) return undefined;
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) return undefined;
-  return parsed;
-};
-
 export const parseQtiResultsXml = (xml: string, fileName: string): QtiResult => {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(xml, 'application/xml');
-  const root = doc.documentElement;
-  if (root.nodeName === 'parsererror') {
-    throw new Error('QTI Results XML の解析に失敗しました');
-  }
-  const context = getElementsByLocalName(root, 'context')[0];
-  const sourcedId = context?.getAttribute('sourcedId') ?? '';
+  const raw = parseResultsXmlRaw(xml);
+  const sourcedId = raw.sourcedId;
   let candidateName = sourcedId || fileName;
-  if (context) {
-    const sessionIdentifiers = getElementsByLocalName(context, 'sessionIdentifier');
-    const candidateNameNode = sessionIdentifiers.find((node) => node.getAttribute('sourceID') === 'candidateName');
-    if (candidateNameNode) {
-      candidateName = candidateNameNode.getAttribute('identifier') ?? candidateName;
-    }
+  const candidateFromSession = raw.sessionIdentifiers['candidateName'];
+  if (candidateFromSession) {
+    candidateName = candidateFromSession;
   }
 
   const itemResults: Record<string, QtiItemResult> = {};
-  const itemResultNodes = getElementsByLocalName(root, 'itemResult');
-  for (const itemResult of itemResultNodes) {
-    const resultIdentifier = itemResult.getAttribute('identifier') ?? '';
-    const sequenceIndex = parsePositiveInteger(itemResult.getAttribute('sequenceIndex'));
-    const responseVariable = getElementsByLocalName(itemResult, 'responseVariable')
-      .find((rv) => rv.getAttribute('identifier') === 'RESPONSE');
+  for (const itemResult of raw.itemResults) {
+    const resultIdentifier = itemResult.identifier;
+    const responseValues = itemResult.responseVariables['RESPONSE'] ?? [];
     let response: string | string[] | null = null;
-    if (responseVariable) {
-      const candidateResponse = getElementsByLocalName(responseVariable, 'candidateResponse')[0];
-      if (candidateResponse) {
-        const values = getElementsByLocalName(candidateResponse, 'value').map((v) => v.textContent ?? '');
-        if (values.length === 1) response = values[0];
-        else if (values.length > 1) response = values;
-      }
-    }
+    if (responseValues.length === 1) response = responseValues[0];
+    else if (responseValues.length > 1) response = responseValues;
 
-    const outcomeVars = getElementsByLocalName(itemResult, 'outcomeVariable');
-    const scoreVar = outcomeVars.find((ov) => ov.getAttribute('identifier') === 'SCORE');
-    const scoreValue = scoreVar ? getElementsByLocalName(scoreVar, 'value')[0]?.textContent : undefined;
-    const commentVar = outcomeVars.find((ov) => ov.getAttribute('identifier') === 'COMMENT');
-    const commentValue = commentVar ? getElementsByLocalName(commentVar, 'value')[0]?.textContent : undefined;
+    const scoreValues = itemResult.outcomeVariables['SCORE'] ?? [];
+    const scoreValue = scoreValues[0];
+    const commentValues = itemResult.outcomeVariables['COMMENT'] ?? [];
+    const commentValue = commentValues[0];
 
     const rubricOutcomes: Record<number, boolean> = {};
-    for (const ov of outcomeVars) {
-      const id = ov.getAttribute('identifier') ?? '';
-      const match = id.match(/^RUBRIC_(\d+)_MET$/);
+    for (const [identifier, values] of Object.entries(itemResult.outcomeVariables)) {
+      const match = identifier.match(/^RUBRIC_(\d+)_MET$/);
       if (!match) continue;
       const idx = Number(match[1]);
-      const value = getElementsByLocalName(ov, 'value')[0]?.textContent;
+      const value = values[0];
       if (value === 'true') rubricOutcomes[idx] = true;
       if (value === 'false') rubricOutcomes[idx] = false;
     }
 
     itemResults[resultIdentifier] = {
       resultIdentifier,
-      sequenceIndex,
+      sequenceIndex: itemResult.sequenceIndex,
       response,
       score: scoreValue ? Number(scoreValue) : undefined,
       comment: commentValue ?? undefined,
@@ -377,51 +352,19 @@ export const parseQtiResultsXml = (xml: string, fileName: string): QtiResult => 
 };
 
 export const parseAssessmentTestXml = (xml: string): AssessmentItemRef[] => {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(xml, 'application/xml');
-  const root = doc.documentElement;
-  if (root.nodeName === 'parsererror') {
-    throw new Error('assessmentTest XML の解析に失敗しました');
+  try {
+    return parseAssessmentTestXmlCore(xml);
+  } catch (error) {
+    throw new Error((error as Error).message || 'assessmentTest XML の解析に失敗しました');
   }
-  if (root.localName !== 'qti-assessment-test') {
-    throw new Error('assessmentTest のルート要素が不正です');
-  }
-  const refNodes = getElementsByLocalName(root, 'qti-assessment-item-ref');
-  const itemRefs = refNodes.map((node) => {
-    const identifier = node.getAttribute('identifier') ?? '';
-    const href = node.getAttribute('href') ?? '';
-    return { identifier, href };
-  });
-  if (itemRefs.length === 0) {
-    throw new Error('assessmentTest に itemRef がありません');
-  }
-  const missing = itemRefs.filter((ref) => !ref.identifier || !ref.href);
-  if (missing.length > 0) {
-    throw new Error('assessmentTest の itemRef に identifier / href がありません');
-  }
-  return itemRefs;
-};
-
-const normalizeRelativePath = (value: string): string => {
-  const parts = value.replace(/\\/g, '/').split('/');
-  const stack: string[] = [];
-  for (const part of parts) {
-    if (!part || part === '.') continue;
-    if (part === '..') {
-      throw new Error(`不正な相対パスです: ${value}`);
-    }
-    stack.push(part);
-  }
-  return stack.join('/');
 };
 
 export const resolveAssessmentHref = (assessmentTestPath: string, href: string): string => {
-  const testPath = normalizeRelativePath(assessmentTestPath);
-  const baseDirParts = testPath.split('/');
-  baseDirParts.pop();
-  const baseDir = baseDirParts.join('/');
-  const combined = baseDir ? `${baseDir}/${href}` : href;
-  return normalizeRelativePath(combined);
+  try {
+    return resolveAssessmentHrefCore(assessmentTestPath, href);
+  } catch (error) {
+    throw new Error((error as Error).message || '不正な相対パスです');
+  }
 };
 
 export const remapResultToAssessmentItems = (

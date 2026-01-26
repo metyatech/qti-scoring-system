@@ -1,5 +1,6 @@
 {
   "name": "msforms-scoring-system",
+  "type": "module",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -11,11 +12,15 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "apply-to-qti-results": "github:metyatech/apply-to-qti-results",
+    "fast-xml-parser": "^4.5.3",
     "highlight.js": "^11.11.1",
     "jszip": "^3.10.1",
     "next": "^15.5.9",
+    "qti-xml-core": "github:metyatech/qti-xml-core",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

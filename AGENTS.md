@@ -1,4 +1,9 @@
 <!-- markdownlint-disable MD025 -->
+# Tool Rules (compose-agentsmd)
+- Before starting any work, run `compose-agentsmd` from the project root.
+- To update rules, update the source rule modules or ruleset, then rerun `compose-agentsmd`.
+- Do not edit `AGENTS.md` directly; update the source rules and regenerate.
+
 # AGENTS ルール運用（合成）
 
 ## 対象範囲
@@ -61,6 +66,7 @@
 - 公開（npm 等）を行ったら、対応する Git タグ（例: `v1.2.3`）を作成して push する。
 - GitHub Releases を作成し、本文は `CHANGELOG.md` の該当バージョンを基準に記述する。
 - バージョンは `package.json`（等の管理対象）と Git タグの間で不整合を起こさない。
+- When bumping a version, always create the GitHub Release and publish the package (e.g., npm) as part of the same update.
 
 ## 実装・技術選定
 
@@ -100,17 +106,21 @@
 - 実装を変更して仕様に影響がある場合は、同一変更セットで仕様書（例: `docs/`）も更新する。仕様書の更新が不要な場合でも、最終返答でその理由を明記する。
 - Markdown ドキュメントの例は、テストケースのファイルで十分に示せる場合はテストケースを参照する。十分でない場合は、その例をテストケース化できるか検討し、可能ならテスト化して参照する。どちらも不適切な場合のみドキュメント内に例を記載する。
 
+# JSON schema validation
+
+- When defining or changing a JSON configuration specification, always create or update a JSON Schema for it.
+- Validate JSON configuration files against the schema as part of the tool's normal execution.
+
 # Languages and writing
 
-## 言語（返答・記述）
+## Response language
 
-### 回答言語
+Write final responses to the user in Japanese unless the user requests otherwise.
 
-ユーザーへの最終返答は日本語で書く（ユーザーから別の希望がある場合はそちらを優先）。
+## Writing language
 
-### 記述言語
-
-- 特に指定がない限り、開発者向けドキュメント（例: `README.md`）、コードコメント、コミットメッセージは英語で書く。
+- Unless specified otherwise, write developer-facing documentation (e.g., `README.md`), code comments, and commit messages in English.
+- Write rule modules in English.
 
 # Markdown Linking Rules
 
@@ -149,6 +159,8 @@
 
 - 変更に関連する最小範囲のビルド/テスト/静的解析を実行する。
 - 実行方法は各リポジトリが用意しているスクリプト/コマンドを優先する（例: `npm run build`, `npm test`）。
+- 静的解析（lint / 型チェック / 静的検証）は必須とし、対象リポジトリに未整備なら同一変更セット内で追加する（必須）。
+- 追加時はまず依存追加なしの最小構成を優先する（例: TypeScript は `tsc --noEmit`）。新規依存が必要な場合は候補と影響範囲を提示し、ユーザー確認後に追加する。
 - 実行できない場合は、その理由と、ユーザーが実行するコマンドを明記する。
 
 ## テスト
@@ -185,6 +197,7 @@
 
 - 失敗を握りつぶさない（空の catch / 黙殺 / サイレントフォールバックを避ける）。
 - 回復可能なら早期 return + 明示的なエラー通知、回復不能なら明確に停止/失敗させる。
+- エラーメッセージは実際の原因を簡潔に示し、必要な場合は対象の入力名と値（例: パス）を含める。
 
 ## 設定検証
 
@@ -196,13 +209,13 @@
 - ログは冗長にしないが、原因特定に必要なコンテキスト（識別子や入力条件）を含める。
 - 秘密情報/個人情報をログに出さない（必要ならマスク/分離する）。
 
-## ドキュメント（README）
+## Documentation (README)
 
-- すべてのリポジトリ（モジュール）に `README.md` を置く。
-- README には最低限として、概要/目的、セットアップ、開発コマンド（例: build/test/lint）、必要な環境変数/設定、公開/デプロイ手順（該当する場合）を書く。
-- ソースコード変更時は、README へ影響がないかを必ず確認する。影響がある場合は同一変更セット内で README を更新する（必須）。
-  - 影響例: 使い方/API/挙動、セットアップ手順、開発コマンド、環境変数、設定、公開/デプロイ手順、対応バージョン、破壊的変更。
-  - README 更新が不要な場合でも、「なぜ不要か」を最終返答に明記する（独断でスキップしない）。
+- Every repository (module) must include a `README.md`.
+- At minimum, the README must cover overview/purpose, setup, development commands (e.g., build/test/lint), required environment variables/config, and release/deploy steps (if applicable).
+- For any source code change, always check whether the README is affected. If it is, update the README at the same time as the code changes (do not defer it to a later step).
+  - Impact examples: usage/API/behavior, setup steps, dev commands, environment variables, configuration, release/deploy steps, supported versions, breaking changes.
+  - Even when a README update is not needed, explain why in the final response (do not skip silently).
 
 # 生成物
 
