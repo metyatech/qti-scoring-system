@@ -7,6 +7,7 @@ import { highlightCodeBlocks } from "@/utils/highlight";
 import { rewriteHtmlImageSources } from "@/utils/assetUrl";
 import { applyResponsesToPromptHtml } from "@/utils/qtiBlankResponses";
 import ExplanationPanel from "@/components/ExplanationPanel";
+import ReportDownloadButton from "@/components/ReportDownloadButton";
 import {
   QtiItem,
   QtiResult,
@@ -310,25 +311,12 @@ export default function WorkspacePage() {
     }
   };
 
-  const handleDownloadReport = async () => {
-    if (!workspace) return;
-    setError(null);
-    try {
-      const res = await fetch(`/api/workspaces/${workspace.id}/report/zip`);
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "レポートの生成に失敗しました");
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${workspace.name} report.zip`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "レポートの生成に失敗しました");
+  const handleReportError = (message: string) => {
+    if (!message) {
+      setError(null);
+      return;
     }
+    setError(message);
   };
 
   if (loading) {
@@ -366,12 +354,11 @@ export default function WorkspacePage() {
           >
             ワークスペース一覧に戻る
           </button>
-          <button
-            onClick={handleDownloadReport}
-            className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
-          >
-            結果レポートをダウンロード
-          </button>
+          <ReportDownloadButton
+            workspaceId={workspace.id}
+            workspaceName={workspace.name}
+            onError={handleReportError}
+          />
           {saving && <span className="text-sm text-gray-500">更新中...</span>}
         </div>
 
