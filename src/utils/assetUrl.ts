@@ -1,30 +1,4 @@
-const normalizeRelativePath = (value: string): string | null => {
-  const parts = value.replace(/\\/g, '/').split('/');
-  const stack: string[] = [];
-  for (const part of parts) {
-    if (!part || part === '.') continue;
-    if (part === '..') {
-      if (stack.length === 0) return null;
-      stack.pop();
-      continue;
-    }
-    stack.push(part);
-  }
-  return stack.join('/');
-};
-
-const getBaseDir = (filePath: string) => {
-  const normalized = filePath.replace(/\\/g, '/');
-  const segments = normalized.split('/');
-  segments.pop();
-  return segments.join('/');
-};
-
-const resolveRelativePath = (baseFilePath: string, relativePath: string): string | null => {
-  const baseDir = getBaseDir(baseFilePath);
-  const combined = baseDir ? `${baseDir}/${relativePath}` : relativePath;
-  return normalizeRelativePath(combined);
-};
+import { resolveRelativePath } from 'qti-xml-core';
 
 const isExternalSource = (src: string) =>
   /^(?:[a-z]+:)?\/\//i.test(src) || src.startsWith('data:') || src.startsWith('/');
@@ -49,4 +23,3 @@ export const rewriteHtmlImageSources = (
   });
   return doc.body.innerHTML;
 };
-
