@@ -38,7 +38,8 @@
 # CLI behavior standards
 
 - Provide `--help`/`-h` with clear usage, options, and examples.
-- Provide `--version` so automation can pin or verify installed versions.
+- Provide --version so automation can pin or verify installed versions.
+- Use -V for version and reserve -v for --verbose.
 - When the CLI reads or writes data, support stdin/stdout piping and allow output to be redirected (e.g., `--output` when files are created).
 - Offer a machine-readable output mode (e.g., `--json`) when the CLI emits structured data.
 - For actions that modify or delete data, provide a safe preview (`--dry-run`) and an explicit confirmation bypass (`--yes`/`--force`).
@@ -78,6 +79,7 @@
 - バージョンは `package.json`（等の管理対象）と Git タグの間で不整合を起こさない。
 - When bumping a version, always create the GitHub Release and publish the package (e.g., npm) as part of the same update.
 - For npm publishing, ask the user to run `npm publish` (or provide OTP) instead of executing it directly.
+- Before publishing, run any required prep commands (e.g., `npm install`, `npm test`, `npm pack --dry-run`) and only attempt `npm publish` once the environment is ready. If authentication or OTP errors occur, ask the user to complete the publish step.
 
 ## 実装・技術選定
 
