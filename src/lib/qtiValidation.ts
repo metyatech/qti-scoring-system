@@ -1,72 +1,39 @@
 import path from 'path';
-import { AssessmentItemRef, resolveAssessmentHref } from '@/utils/qtiParsing';
+import {
+  extractItemIdentifier as extractItemIdentifierCore,
+  parseAssessmentItemRefsFromXml,
+  parseResultItemRefsFromXml,
+  type AssessmentItemRef,
+  type ResultItemRef,
+} from 'qti-xml-core';
+import { resolveAssessmentHref } from '@/utils/qtiParsing';
 
-const matchAttribute = (tag: string, attr: string, xml: string): string | null => {
-  const re = new RegExp(`<\\s*(?:\\w+:)?${tag}\\b[^>]*\\b${attr}\\s*=\\s*(['"])(.*?)\\1`, 'i');
-  const match = xml.match(re);
-  return match ? match[2] : null;
-};
-
-export const extractItemIdentifier = (xml: string): string | null =>
-  matchAttribute('qti-assessment-item', 'identifier', xml);
+export const extractItemIdentifier = (xml: string): string | null => extractItemIdentifierCore(xml);
 
 type AssessmentItemRefResolved = AssessmentItemRef & { resolvedHref: string };
 
-type ResultItemRef = {
-  identifier: string;
-  sequenceIndex: number | null;
-  hasSequenceIndex: boolean;
-};
-
 const extractAssessmentItemRefs = (xml: string): { itemRefs: AssessmentItemRef[]; errors: string[] } => {
-  const errors: string[] = [];
-  const itemRefs: AssessmentItemRef[] = [];
-  const re = /<\s*(?:\w+:)?qti-assessment-item-ref\b[^>]*>/gi;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(xml)) !== null) {
-    const tag = match[0];
-    const identifier = matchAttribute('qti-assessment-item-ref', 'identifier', tag);
-    const href = matchAttribute('qti-assessment-item-ref', 'href', tag);
-    if (!identifier || !href) {
-      errors.push('assessmentTest の itemRef に identifier / href がありません');
-      continue;
-    }
-    itemRefs.push({ identifier, href });
-  }
-  if (itemRefs.length === 0) {
-    errors.push('assessmentTest に itemRef がありません');
-  }
-  return { itemRefs, errors };
+  const parsed = parseAssessmentItemRefsFromXml(xml);
+  const errors = parsed.errors.map((error) =>
+    error.code === 'missing-itemref-identifier-or-href'
+      ? 'assessmentTest の itemRef に identifier / href がありません'
+      : 'assessmentTest に itemRef がありません'
+  );
+  return { itemRefs: parsed.itemRefs, errors };
 };
 
 const extractResultItemRefs = (xml: string): { itemRefs: ResultItemRef[]; errors: string[] } => {
-  const errors: string[] = [];
-  const itemRefs: ResultItemRef[] = [];
-  const re = /<\s*(?:\w+:)?itemResult\b[^>]*>/gi;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(xml)) !== null) {
-    const tag = match[0];
-    const identifier = matchAttribute('itemResult', 'identifier', tag);
-    if (!identifier) {
-      errors.push('results の itemResult に identifier がありません');
-      continue;
+  const parsed = parseResultItemRefsFromXml(xml);
+  const errors = parsed.errors.map((error) => {
+    if (error.code === 'missing-itemresult-identifier') {
+      return 'results の itemResult に identifier がありません';
     }
-    const rawSequenceIndex = matchAttribute('itemResult', 'sequenceIndex', tag);
-    const hasSequenceIndex = rawSequenceIndex !== null;
-    const parsedSequenceIndex = rawSequenceIndex ? Number(rawSequenceIndex) : NaN;
-    const sequenceIndex =
-      hasSequenceIndex && Number.isInteger(parsedSequenceIndex) && parsedSequenceIndex > 0
-        ? parsedSequenceIndex
-        : null;
-    if (hasSequenceIndex && sequenceIndex === null) {
-      errors.push(`results の sequenceIndex が不正です: ${identifier}`);
+    if (error.code === 'invalid-sequence-index') {
+      return `results の sequenceIndex が不正です: ${error.identifier}`;
     }
-    itemRefs.push({ identifier, sequenceIndex, hasSequenceIndex });
-  }
-  if (itemRefs.length === 0) {
-    errors.push('results XML から itemResult が取得できません');
-  }
-  return { itemRefs, errors };
+    return 'results XML から itemResult が取得できません';
+  });
+  return { itemRefs: parsed.itemRefs, errors };
 };
 
 const detectDuplicateIdentifiers = (itemRefs: AssessmentItemRef[]): string[] => {
