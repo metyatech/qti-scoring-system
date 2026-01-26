@@ -3,6 +3,7 @@
 - Before starting any work, run `compose-agentsmd` from the project root.
 - To update shared rules, run `compose-agentsmd edit-rules`, edit the workspace rules, then run `compose-agentsmd apply-rules`.
 - Do not edit `AGENTS.md` directly; update the source rules and regenerate.
+- When updating rules, include a detailed summary of what changed (added/removed/modified items) in the final response.
 
 # AGENTS ルール運用（合成）
 
@@ -21,6 +22,7 @@
 - ユーザーから「ルールを更新して」と依頼された場合、特段の指示がない限り「適切なルールモジュールとルールセットを更新し、再生成する」ことを意味する。
 - ユーザーが「常にこうして下さい」など恒常運用の指示を明示した場合は、その指示自体をルールとして適切なモジュールに追記する。
 - ユーザーが「必ず」「つねに」などの強い必須指定を含む指示を出した場合は、その指示がグローバルかプロジェクト固有かを判断し、適切なモジュールに追記して再生成する。
+- When updating rules, infer the core intent; if it represents a global policy, record it in global rules rather than project-local rules.
 
 ## ルール修正時の注意点
 
@@ -50,6 +52,7 @@
 
 - ユーザーが明示しない限り、コマンドにラッパーやパイプを付加しない。
 - ビルド/テスト/実行は、各リポジトリの標準スクリプト/手順（`package.json`、README等）を優先する。
+- When running git commands that could open an editor, avoid interactive prompts by using `--no-edit` where applicable or setting `GIT_EDITOR=true` for that command.
 
 # 配布と公開
 
@@ -78,8 +81,8 @@
 - GitHub Releases を作成し、本文は `CHANGELOG.md` の該当バージョンを基準に記述する。
 - バージョンは `package.json`（等の管理対象）と Git タグの間で不整合を起こさない。
 - When bumping a version, always create the GitHub Release and publish the package (e.g., npm) as part of the same update.
-- For npm publishing, ask the user to run `npm publish` (or provide OTP) instead of executing it directly.
-- Before publishing, run any required prep commands (e.g., `npm install`, `npm test`, `npm pack --dry-run`) and only attempt `npm publish` once the environment is ready. If authentication or OTP errors occur, ask the user to complete the publish step.
+- For npm publishing, ask the user to run `npm publish` instead of executing it directly.
+- Before publishing, run any required prep commands (e.g., `npm install`, `npm test`, `npm pack --dry-run`) and only attempt `npm publish` once the environment is ready. If authentication errors occur, ask the user to complete the publish step.
 
 ## 実装・技術選定
 
@@ -87,6 +90,7 @@
 - JavaScript は、ツール都合で必要な設定ファイル等に限定する。
 - 既存の言語/フレームワーク/依存関係の範囲で完結させる。新規依存追加は必要最小限にする。
 - 対象ツール/フレームワークに公式チュートリアルや推奨される標準手法がある場合は、それを第一優先で採用する（明確な理由がある場合を除く）。
+- Prefer existing internet-hosted tools/libraries for reusable functionality; if none exist, externalize the shared logic into a separate repository/module and reference it via remote dependency (never local filesystem paths).
 - 「既存に合わせる」よりも「理想的な状態（読みやすさ・保守性・一貫性・安全性）」を優先する。
 - ただし、目的と釣り合わない大改修や無関係な改善はしない。
 - 不明点や判断が分かれる点は、独断で進めず確認する。

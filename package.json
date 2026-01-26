@@ -17,6 +17,7 @@
     "highlight.js": "^11.11.1",
     "jszip": "^3.10.1",
     "next": "^15.5.9",
+    "qti-html-renderer": "git+https://github.com/metyatech/qti-html-renderer.git",
     "qti-xml-core": "github:metyatech/qti-xml-core",
     "react": "19.1.0",
     "react-dom": "19.1.0",
