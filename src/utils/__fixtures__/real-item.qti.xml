@@ -1,0 +1,23 @@
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-blank-pre" title="Blank Pre" adaptive="false" time-dependent="false">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
+  <qti-item-body>
+    <qti-pre>
+      <qti-code>opacity: </qti-code>
+      <qti-text-entry-interaction response-identifier="RESPONSE"/>
+      <qti-code>;</qti-code>
+      <qti-code>transition: </qti-code>
+      <qti-text-entry-interaction response-identifier="RESPONSE"/>
+      <qti-code>;</qti-code>
+      <qti-code>color: </qti-code>
+      <qti-text-entry-interaction response-identifier="RESPONSE"/>
+      <qti-code>;</qti-code>
+      <qti-code>background: </qti-code>
+      <qti-text-entry-interaction response-identifier="RESPONSE"/>
+      <qti-code>;</qti-code>
+      <qti-code>line-height:
+</qti-code>
+      <qti-text-entry-interaction response-identifier="RESPONSE"/>
+      <qti-code>;</qti-code>
+    </qti-pre>
+  </qti-item-body>
+</qti-assessment-item>

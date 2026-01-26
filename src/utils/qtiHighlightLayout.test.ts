@@ -4,8 +4,7 @@ import path from 'path';
 import { parseQtiItemXml } from '@/utils/qtiParsing';
 import { highlightCodeBlocks } from '@/utils/highlight';
 
-const REAL_ITEM_PATH =
-  'D:/siw-workspace/javascript-course-exam/exams/2025/2semester/2final_exam/regular/qti-out/JavaScriptⅡ_期末試験_本試験_問題_問4.qti.xml';
+const REAL_ITEM_PATH = 'src/utils/__fixtures__/real-item.qti.xml';
 
 const loadCss = (cssPath: string) => {
   const cssText = fs.readFileSync(cssPath, 'utf-8');
@@ -25,7 +24,7 @@ describe('highlight theme layout with blanks', () => {
     const highlightStyle = loadCss(highlightCssPath);
     const globalsStyle = loadCss(globalsCssPath);
 
-    const xml = fs.readFileSync(REAL_ITEM_PATH, 'utf-8');
+    const xml = fs.readFileSync(path.resolve(process.cwd(), REAL_ITEM_PATH), 'utf-8');
     const item = parseQtiItemXml(xml);
     const root = document.createElement('div');
     root.className = 'qti-prompt';
@@ -47,4 +46,3 @@ describe('highlight theme layout with blanks', () => {
     highlightStyle.remove();
   });
 });
-
