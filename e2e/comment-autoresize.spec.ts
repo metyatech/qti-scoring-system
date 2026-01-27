@@ -46,6 +46,6 @@ test('item quick preview opens in item view', async ({ page }) => {
   await page.getByRole('button', { name: '設問を開く' }).click();
   await expect(page.getByRole('heading', { name: '設問プレビュー' })).toBeVisible();
   await expect(page.getByTestId('item-preview-body').getByText('Explain your answer.')).toBeVisible();
-  await page.getByRole('button', { name: '閉じる' }).click();
+  await page.getByTestId('item-preview-overlay').click({ position: { x: 10, y: 10 } });
   await expect(page.getByRole('heading', { name: '設問プレビュー' })).toBeHidden();
 });

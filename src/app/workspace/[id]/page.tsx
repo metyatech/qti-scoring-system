@@ -155,6 +155,17 @@ export default function WorkspacePage() {
     }
   }, [viewMode]);
 
+  useEffect(() => {
+    if (!showItemPreview) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowItemPreview(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showItemPreview]);
+
   const currentResult = results[currentResultIndex];
   const currentItem = items[currentItemIndex];
 
@@ -703,8 +714,15 @@ export default function WorkspacePage() {
               設問を開く
             </button>
             {showItemPreview && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-6">
+              <div
+                className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+                onClick={() => setShowItemPreview(false)}
+                data-testid="item-preview-overlay"
+              >
+                <div
+                  className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-6"
+                  onClick={(event) => event.stopPropagation()}
+                >
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-gray-800">設問プレビュー</h2>
                     <button
