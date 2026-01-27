@@ -287,10 +287,13 @@ export default function WorkspacePage() {
   ) => {
     const item = items.find((i) => i.identifier === itemId);
     if (!item || item.rubric.length === 0) return;
-    const criteria = item.rubric.map((c) => ({
-      met: rubricOutcomes[c.index] ?? false,
-      criterionText: c.text,
-    }));
+    const criteria = item.rubric.map((c) => {
+      const met = rubricOutcomes[c.index];
+      return {
+        criterionText: c.text,
+        ...(typeof met === "boolean" ? { met } : {}),
+      };
+    });
     await fetch(`/api/workspaces/${id}/results`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
