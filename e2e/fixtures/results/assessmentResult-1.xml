@@ -2,6 +2,7 @@
 <assessmentResult xmlns="http://www.imsglobal.org/xsd/imsqti_result_v3p0">
   <context sourcedId="e2e-user">
     <sessionIdentifier sourceID="candidateName" identifier="E2E User" />
+    <sessionIdentifier sourceID="materialTitle" identifier="E2E Assessment" />
   </context>
   <testResult identifier="test-1" datestamp="2026-01-01T10:10:00+09:00">
     <outcomeVariable identifier="SCORE" cardinality="single" baseType="float">
@@ -12,6 +13,9 @@
     <responseVariable identifier="RESPONSE" cardinality="single" baseType="string">
       <candidateResponse><value>Test</value></candidateResponse>
     </responseVariable>
+    <outcomeVariable identifier="SCORE" baseType="float">
+      <value>0</value>
+    </outcomeVariable>
     <outcomeVariable identifier="COMMENT" baseType="string">
       <value>Initial comment</value>
     </outcomeVariable>

@@ -6,6 +6,7 @@
     <qti-extended-text-interaction response-identifier="RESPONSE" />
     <qti-rubric-block view="scorer">
       <qti-p>[1] Provides any answer</qti-p>
+      <qti-p>[2] Explains reasoning</qti-p>
     </qti-rubric-block>
   </qti-item-body>
 </qti-assessment-item>
