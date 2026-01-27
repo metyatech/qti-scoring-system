@@ -17,6 +17,7 @@ import {
   remapResultToAssessmentItems,
 } from "@/utils/qtiParsing";
 import { getItemMaxScore, getItemScore, getRubricScore } from "@/utils/scoring";
+import { updateItemComment } from "@/utils/resultUpdates";
 
 const fetchFileText = async (workspaceId: string, kind: string, name: string) => {
   const res = await fetch(`/api/workspaces/${workspaceId}/files?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}`);
@@ -302,23 +303,7 @@ export default function WorkspacePage() {
     const prevResults = results;
     setSaving(true);
     setError(null);
-    setResults((prev) =>
-      prev.map((res) => {
-        if (res.fileName !== resultFile) return res;
-        const itemResult = res.itemResults[itemId] || {
-          resultIdentifier: itemId,
-          response: null,
-          rubricOutcomes: {},
-        };
-        return {
-          ...res,
-          itemResults: {
-            ...res.itemResults,
-            [itemId]: { ...itemResult, comment },
-          },
-        };
-      })
-    );
+    setResults((prev) => updateItemComment(prev, resultFile, itemId, comment));
 
     try {
       await updateComment(resultFile, itemId, comment);
@@ -338,6 +323,10 @@ export default function WorkspacePage() {
   const handleCommentBlur = async (itemId: string, comment: string) => {
     if (!currentResult) return;
     await updateResultComment(currentResult.fileName, itemId, comment);
+  };
+
+  const handleCommentChange = (resultFile: string, itemId: string, comment: string) => {
+    setResults((prev) => updateItemComment(prev, resultFile, itemId, comment));
   };
 
   const handleReportError = (message: string) => {
@@ -596,7 +585,8 @@ export default function WorkspacePage() {
                         <textarea
                           className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           rows={2}
-                          defaultValue={comment}
+                          value={comment}
+                          onChange={(e) => handleCommentChange(currentResult.fileName, item.identifier, e.target.value)}
                           onBlur={(e) => handleCommentBlur(item.identifier, e.target.value)}
                         />
                       </div>
@@ -682,7 +672,10 @@ export default function WorkspacePage() {
                           <textarea
                             className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             rows={2}
-                            defaultValue={comment}
+                            value={comment}
+                            onChange={(e) =>
+                              handleCommentChange(result.fileName, currentItem.identifier, e.target.value)
+                            }
                             onBlur={(e) => updateResultComment(result.fileName, currentItem.identifier, e.target.value)}
                           />
                         </div>
