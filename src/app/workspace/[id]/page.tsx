@@ -44,8 +44,8 @@ export default function WorkspacePage() {
   const [loopMessage, setLoopMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showItemPreview, setShowItemPreview] = useState(false);
-  const [saveFeedback, setSaveFeedback] = useState<"idle" | "saving" | "saved">("idle");
-  const saveFeedbackTimerRef = useRef<number | null>(null);
+  const [saveStatusByKey, setSaveStatusByKey] = useState<Record<string, "idle" | "saving" | "saved">>({});
+  const saveStatusTimersRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     if (!id) return;
@@ -187,29 +187,44 @@ export default function WorkspacePage() {
     setTimeout(() => setLoopMessage(null), 2000);
   };
 
-  const startSaveFeedback = () => {
-    if (saveFeedbackTimerRef.current !== null) {
-      window.clearTimeout(saveFeedbackTimerRef.current);
-      saveFeedbackTimerRef.current = null;
+  const makeSaveKey = (resultFile: string, itemId: string) => `${resultFile}::${itemId}`;
+
+  const startSaveFeedback = (key: string) => {
+    const existing = saveStatusTimersRef.current[key];
+    if (existing) {
+      window.clearTimeout(existing);
+      delete saveStatusTimersRef.current[key];
     }
-    setSaveFeedback("saving");
+    setSaveStatusByKey((prev) => ({ ...prev, [key]: "saving" }));
   };
 
-  const finishSaveFeedback = (status: "saved" | "idle") => {
-    setSaveFeedback(status);
+  const finishSaveFeedback = (key: string, status: "saved" | "idle") => {
+    setSaveStatusByKey((prev) => {
+      const next = { ...prev };
+      if (status === "idle") {
+        delete next[key];
+      } else {
+        next[key] = status;
+      }
+      return next;
+    });
     if (status === "saved") {
-      saveFeedbackTimerRef.current = window.setTimeout(() => {
-        setSaveFeedback("idle");
-        saveFeedbackTimerRef.current = null;
+      const timer = window.setTimeout(() => {
+        setSaveStatusByKey((prev) => {
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
+        delete saveStatusTimersRef.current[key];
       }, 2000);
+      saveStatusTimersRef.current[key] = timer;
     }
   };
 
   useEffect(() => {
     return () => {
-      if (saveFeedbackTimerRef.current !== null) {
-        window.clearTimeout(saveFeedbackTimerRef.current);
-      }
+      Object.values(saveStatusTimersRef.current).forEach((timer) => window.clearTimeout(timer));
+      saveStatusTimersRef.current = {};
     };
   }, []);
 
@@ -314,7 +329,8 @@ export default function WorkspacePage() {
     const prevResults = results;
     setSaving(true);
     setError(null);
-    startSaveFeedback();
+    const saveKey = makeSaveKey(resultFile, itemId);
+    startSaveFeedback(saveKey);
     let nextRubricOutcomes: Record<number, boolean> = {};
     setResults((prev) =>
       prev.map((res) => {
@@ -339,11 +355,11 @@ export default function WorkspacePage() {
 
     try {
       await updateCriteria(resultFile, itemId, nextRubricOutcomes);
-      finishSaveFeedback("saved");
+      finishSaveFeedback(saveKey, "saved");
     } catch (err) {
       setResults(prevResults);
       setError(err instanceof Error ? err.message : "採点結果の更新に失敗しました");
-      finishSaveFeedback("idle");
+      finishSaveFeedback(saveKey, "idle");
     } finally {
       setSaving(false);
     }
@@ -353,16 +369,17 @@ export default function WorkspacePage() {
     const prevResults = results;
     setSaving(true);
     setError(null);
-    startSaveFeedback();
+    const saveKey = makeSaveKey(resultFile, itemId);
+    startSaveFeedback(saveKey);
     setResults((prev) => updateItemComment(prev, resultFile, itemId, comment));
 
     try {
       await updateComment(resultFile, itemId, comment);
-      finishSaveFeedback("saved");
+      finishSaveFeedback(saveKey, "saved");
     } catch (err) {
       setResults(prevResults);
       setError(err instanceof Error ? err.message : "コメントの更新に失敗しました");
-      finishSaveFeedback("idle");
+      finishSaveFeedback(saveKey, "idle");
     } finally {
       setSaving(false);
     }
@@ -433,19 +450,6 @@ export default function WorkspacePage() {
             workspaceName={workspace.name}
             onError={handleReportError}
           />
-          <span
-            className={`text-sm ${
-              saveFeedback === "idle"
-                ? "text-transparent select-none"
-                : saveFeedback === "saving"
-                  ? "text-gray-500"
-                  : "text-green-600"
-            }`}
-            data-testid="save-status"
-            aria-live="polite"
-          >
-            {saveFeedback === "idle" ? "保存済み" : saveFeedback === "saving" ? "保存中..." : "保存しました"}
-          </span>
           {saving && <span className="sr-only">更新中...</span>}
         </div>
 
@@ -595,6 +599,8 @@ export default function WorkspacePage() {
                   : item.promptHtml;
               const rubric = item.rubric;
               const comment = itemResult?.comment ?? "";
+              const saveKey = makeSaveKey(currentResult.fileName, item.identifier);
+              const saveStatus = saveStatusByKey[saveKey] ?? "idle";
               return (
                 <div key={item.identifier} className="bg-white border rounded-lg p-6 shadow-sm">
                   <div className="flex items-center gap-3 mb-3">
@@ -647,7 +653,18 @@ export default function WorkspacePage() {
                         })}
                       </div>
                       <div className="mt-3">
-                        <label className="block text-xs font-medium text-gray-600 mb-1">コメント</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-medium text-gray-600">コメント</label>
+                          {saveStatus !== "idle" && (
+                            <span
+                              className={`text-xs ${saveStatus === "saving" ? "text-gray-500" : "text-green-600"}`}
+                              data-testid={`save-status-${currentResult.fileName}-${item.identifier}`}
+                              aria-live="polite"
+                            >
+                              {saveStatus === "saving" ? "保存中..." : "保存しました"}
+                            </span>
+                          )}
+                        </div>
                         <AutoResizeTextarea
                           className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           rows={2}
@@ -686,6 +703,8 @@ export default function WorkspacePage() {
                 const responseText = formatResponse(currentItem, itemResult);
                 const comment = itemResult?.comment ?? "";
                 const itemScore = getItemScore(currentItem, itemResult);
+                const saveKey = makeSaveKey(result.fileName, currentItem.identifier);
+                const saveStatus = saveStatusByKey[saveKey] ?? "idle";
                 return (
                   <div key={result.fileName} className="bg-white border rounded-lg p-6 shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -734,7 +753,18 @@ export default function WorkspacePage() {
                           })}
                         </div>
                         <div className="mt-3">
-                          <label className="block text-xs font-medium text-gray-600 mb-1">コメント</label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-medium text-gray-600">コメント</label>
+                            {saveStatus !== "idle" && (
+                              <span
+                                className={`text-xs ${saveStatus === "saving" ? "text-gray-500" : "text-green-600"}`}
+                                data-testid={`save-status-${result.fileName}-${currentItem.identifier}`}
+                                aria-live="polite"
+                              >
+                                {saveStatus === "saving" ? "保存中..." : "保存しました"}
+                              </span>
+                            )}
+                          </div>
                           <AutoResizeTextarea
                             className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             rows={2}
