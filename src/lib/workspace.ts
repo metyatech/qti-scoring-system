@@ -44,6 +44,8 @@ const ensureDataDir = () => {
 
 export const getWorkspaceDir = (id: string) => path.join(DATA_DIR, id);
 
+export const getWorkspacesRoot = () => DATA_DIR;
+
 export const getWorkspaceMetaPath = (id: string) => path.join(getWorkspaceDir(id), WORKSPACE_META);
 
 export const getAssessmentDir = (id: string) => path.join(getWorkspaceDir(id), 'assessment');

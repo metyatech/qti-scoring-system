@@ -410,6 +410,11 @@ export default function WorkspacePage() {
     setError(message);
   };
 
+  const handleExportWorkspace = () => {
+    if (!workspace) return;
+    window.location.href = `/api/workspaces/${workspace.id}/export`;
+  };
+
   if (loading) {
     return <div className="p-8 text-center text-gray-500">読み込み中...</div>;
   }
@@ -447,6 +452,12 @@ export default function WorkspacePage() {
             className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
           >
             ワークスペース一覧に戻る
+          </button>
+          <button
+            onClick={handleExportWorkspace}
+            className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-900 transition-colors"
+          >
+            このワークスペースをエクスポート
           </button>
           <ReportDownloadButton
             workspaceId={workspace.id}

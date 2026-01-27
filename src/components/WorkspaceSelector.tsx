@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { QtiWorkspaceSummary } from '@/types/qti';
 
 interface WorkspaceSelectorProps {
@@ -15,6 +15,10 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
     const [expandedWorkspaces, setExpandedWorkspaces] = useState<Set<string>>(new Set());
     const [editingWorkspace, setEditingWorkspace] = useState<string | null>(null);
     const [editForm, setEditForm] = useState({ name: '', description: '' });
+    const [importFile, setImportFile] = useState<File | null>(null);
+    const [importing, setImporting] = useState(false);
+    const [importSuccess, setImportSuccess] = useState<string | null>(null);
+    const importInputRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
         loadWorkspaces();
@@ -117,6 +121,72 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
         }
     };
 
+    const handleImport = async () => {
+        if (!importFile) {
+            setError('インポートするZIPファイルを選択してください');
+            return;
+        }
+
+        setImporting(true);
+        setImportSuccess(null);
+        try {
+            const runImport = async (mode: 'reject' | 'overwrite') => {
+                const form = new FormData();
+                form.append('archive', importFile);
+                form.append('mode', mode);
+                return await fetch('/api/workspaces/import', {
+                    method: 'POST',
+                    body: form,
+                });
+            };
+
+            const response = await runImport('reject');
+
+            if (response.ok) {
+                const result = await response.json();
+                setImportSuccess(`インポート完了: ${result.importedCount ?? 0}件`);
+                setImportFile(null);
+                if (importInputRef.current) {
+                    importInputRef.current.value = '';
+                }
+                loadWorkspaces();
+                return;
+            }
+
+            if (response.status === 409) {
+                const result = await response.json().catch(() => ({}));
+                const shouldOverwrite = confirm(
+                    result.error ||
+                    '同じIDのワークスペースが存在します。上書きしますか？'
+                );
+                if (!shouldOverwrite) {
+                    return;
+                }
+                const overwriteResponse = await runImport('overwrite');
+                if (overwriteResponse.ok) {
+                    const overwriteResult = await overwriteResponse.json();
+                    setImportSuccess(`インポート完了: ${overwriteResult.importedCount ?? 0}件`);
+                    setImportFile(null);
+                    if (importInputRef.current) {
+                        importInputRef.current.value = '';
+                    }
+                    loadWorkspaces();
+                    return;
+                }
+                const overwriteError = await overwriteResponse.json().catch(() => ({}));
+                setError(overwriteError.error || 'ワークスペースのインポートに失敗しました');
+                return;
+            }
+
+            const result = await response.json().catch(() => ({}));
+            setError(result.error || 'ワークスペースのインポートに失敗しました');
+        } catch (error) {
+            console.error('ワークスペースインポートエラー:', error);
+            setError('ワークスペースのインポートに失敗しました');
+        } finally {
+            setImporting(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -156,6 +226,38 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
                 >
                     新しいワークスペースを作成
                 </button>
+            </div>
+
+            <div className="mb-10 border border-gray-200 rounded-lg p-4 bg-white">
+                <h2 className="text-lg font-semibold text-gray-900 mb-3">ワークスペースのインポート</h2>
+                <div className="flex flex-wrap gap-4 items-start">
+                    <div className="flex-1 min-w-[260px]">
+                        <label htmlFor="workspaceImportFile" className="block text-sm font-medium text-gray-700 mb-1">
+                            エクスポートZIPをインポート
+                        </label>
+                        <input
+                            id="workspaceImportFile"
+                            type="file"
+                            accept=".zip"
+                            ref={importInputRef}
+                            onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+                            className="block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                        />
+                        <button
+                            onClick={handleImport}
+                            disabled={importing}
+                            className="mt-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-green-400 transition-colors"
+                        >
+                            {importing ? 'インポート中...' : 'インポート実行'}
+                        </button>
+                        <p className="mt-1 text-xs text-gray-500">
+                            同じIDのワークスペースがある場合は上書きするか確認します
+                        </p>
+                        {importSuccess && (
+                            <div className="mt-2 text-sm text-green-700">{importSuccess}</div>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {workspaces.length > 0 && (
