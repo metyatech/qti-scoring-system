@@ -48,7 +48,8 @@ export async function GET(
         results,
       });
       const safeName = sanitizeFileName(`${workspace.name} report.zip`);
-      return new NextResponse(zipBuffer, {
+      const zipBody = new Uint8Array(zipBuffer);
+      return new NextResponse(zipBody, {
         headers: {
           'Content-Type': 'application/zip',
           'Content-Disposition': buildContentDisposition('report.zip', safeName),
