@@ -25,6 +25,7 @@
 - When updating rules, infer the core intent; if it represents a global policy, record it in global rules rather than project-local rules.
 - When you acknowledge a new persistent instruction, update the appropriate rule module in the same change set and regenerate `AGENTS.md`.
 - When updating rules, include a colorized diff-style summary in the final response; prefer `git diff --color=always` when available.
+- Always include raw ANSI escape codes in diff outputs (e.g., paste the direct output of `git diff --color=always` without sanitizing or reformatting) so the response renders with colors in compatible UIs.
 
 ## ルール修正時の注意点
 
@@ -104,6 +105,7 @@
 - 「既存に合わせる」よりも「理想的な状態（読みやすさ・保守性・一貫性・安全性）」を優先する。
 - ただし、目的と釣り合わない大改修や無関係な改善はしない。
 - 根本原因を修正できる場合は、場当たり的なフォールバックや回避策を追加しない（ノイズ/負債化するため）。
+- When a bug originates in a dependency you control or can patch, fix the dependency first; only add app-level workarounds as a last resort after documenting why the dependency fix is not feasible.
 - 不明点や判断が分かれる点は、独断で進めず確認する。
 - 推測だけで判断して進めない。根拠が不足している場合は確認する。
 - 原因・根拠を未確認のまま「可能性が高い」などの推測で実装・修正しない。まず事実確認し、確認できない場合はユーザーに確認する。

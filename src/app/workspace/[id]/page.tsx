@@ -44,6 +44,8 @@ export default function WorkspacePage() {
   const [loopMessage, setLoopMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showItemPreview, setShowItemPreview] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<"idle" | "saving" | "saved">("idle");
+  const saveFeedbackTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -185,6 +187,32 @@ export default function WorkspacePage() {
     setTimeout(() => setLoopMessage(null), 2000);
   };
 
+  const startSaveFeedback = () => {
+    if (saveFeedbackTimerRef.current !== null) {
+      window.clearTimeout(saveFeedbackTimerRef.current);
+      saveFeedbackTimerRef.current = null;
+    }
+    setSaveFeedback("saving");
+  };
+
+  const finishSaveFeedback = (status: "saved" | "idle") => {
+    setSaveFeedback(status);
+    if (status === "saved") {
+      saveFeedbackTimerRef.current = window.setTimeout(() => {
+        setSaveFeedback("idle");
+        saveFeedbackTimerRef.current = null;
+      }, 2000);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (saveFeedbackTimerRef.current !== null) {
+        window.clearTimeout(saveFeedbackTimerRef.current);
+      }
+    };
+  }, []);
+
   const nextCandidate = () => {
     if (!results.length) return;
     const nextIndex = (currentResultIndex + 1) % results.length;
@@ -286,6 +314,7 @@ export default function WorkspacePage() {
     const prevResults = results;
     setSaving(true);
     setError(null);
+    startSaveFeedback();
     let nextRubricOutcomes: Record<number, boolean> = {};
     setResults((prev) =>
       prev.map((res) => {
@@ -310,9 +339,11 @@ export default function WorkspacePage() {
 
     try {
       await updateCriteria(resultFile, itemId, nextRubricOutcomes);
+      finishSaveFeedback("saved");
     } catch (err) {
       setResults(prevResults);
       setError(err instanceof Error ? err.message : "採点結果の更新に失敗しました");
+      finishSaveFeedback("idle");
     } finally {
       setSaving(false);
     }
@@ -322,13 +353,16 @@ export default function WorkspacePage() {
     const prevResults = results;
     setSaving(true);
     setError(null);
+    startSaveFeedback();
     setResults((prev) => updateItemComment(prev, resultFile, itemId, comment));
 
     try {
       await updateComment(resultFile, itemId, comment);
+      finishSaveFeedback("saved");
     } catch (err) {
       setResults(prevResults);
       setError(err instanceof Error ? err.message : "コメントの更新に失敗しました");
+      finishSaveFeedback("idle");
     } finally {
       setSaving(false);
     }
@@ -399,7 +433,20 @@ export default function WorkspacePage() {
             workspaceName={workspace.name}
             onError={handleReportError}
           />
-          {saving && <span className="text-sm text-gray-500">更新中...</span>}
+          <span
+            className={`text-sm ${
+              saveFeedback === "idle"
+                ? "text-transparent select-none"
+                : saveFeedback === "saving"
+                  ? "text-gray-500"
+                  : "text-green-600"
+            }`}
+            data-testid="save-status"
+            aria-live="polite"
+          >
+            {saveFeedback === "idle" ? "保存済み" : saveFeedback === "saving" ? "保存中..." : "保存しました"}
+          </span>
+          {saving && <span className="sr-only">更新中...</span>}
         </div>
 
         <div className="sticky top-0 bg-white border rounded-lg shadow-sm p-4 mb-6 z-10">
