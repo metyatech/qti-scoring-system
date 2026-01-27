@@ -23,6 +23,8 @@
 - ユーザーが「常にこうして下さい」など恒常運用の指示を明示した場合は、その指示自体をルールとして適切なモジュールに追記する。
 - ユーザーが「必ず」「つねに」などの強い必須指定を含む指示を出した場合は、その指示がグローバルかプロジェクト固有かを判断し、適切なモジュールに追記して再生成する。
 - When updating rules, infer the core intent; if it represents a global policy, record it in global rules rather than project-local rules.
+- When you acknowledge a new persistent instruction, update the appropriate rule module in the same change set and regenerate `AGENTS.md`.
+- When updating rules, include a colorized diff-style summary in the final response; prefer `git diff --color=always` when available.
 
 ## ルール修正時の注意点
 
@@ -36,6 +38,12 @@
 
 - 各プロジェクトのルートに `AGENTS.md` を置く。
 - サブツリーに別プロジェクトがある場合のみ、そのルートに `AGENTS.md` を置く（同一プロジェクト内で重複配置しない）。
+
+# Browser automation (Codex)
+
+- For web automation, use the `agent-browser` CLI (via the installed `agent-browser` skill when available).
+- Prefer the ref-based workflow: `agent-browser open <url>` → `agent-browser snapshot -i --json` → interact using `@eN` refs → re-snapshot after changes.
+- If browser launch fails due to missing Playwright binaries, run `npx playwright install chromium` and retry.
 
 # CLI behavior standards
 
@@ -80,6 +88,7 @@
 - 公開（npm 等）を行ったら、対応する Git タグ（例: `v1.2.3`）を作成して push する。
 - GitHub Releases を作成し、本文は `CHANGELOG.md` の該当バージョンを基準に記述する。
 - バージョンは `package.json`（等の管理対象）と Git タグの間で不整合を起こさない。
+- When asked to choose a version number, always decide it yourself (do not ask the user).
 - When bumping a version, always create the GitHub Release and publish the package (e.g., npm) as part of the same update.
 - For npm publishing, ask the user to run `npm publish` instead of executing it directly.
 - Before publishing, run any required prep commands (e.g., `npm install`, `npm test`, `npm pack --dry-run`) and only attempt `npm publish` once the environment is ready. If authentication errors occur, ask the user to complete the publish step.
@@ -91,6 +100,7 @@
 - 外部依存で汎用的な解決ができる場合は積極的に採用する。内製は外部依存が適切に見つからない場合のみに限定する。
 - 対象ツール/フレームワークに公式チュートリアルや推奨される標準手法がある場合は、それを第一優先で採用する（明確な理由がある場合を除く）。
 - Prefer existing internet-hosted tools/libraries for reusable functionality; if none exist, externalize the shared logic into a separate repository/module and reference it via remote dependency (never local filesystem paths).
+- When building a feature that appears reusable across repositories or generally useful, explicitly assess reuse first: look for existing solutions, and if none fit, propose creating a new repository/module and publishing it with proper maintenance hygiene instead of embedding the logic in a single repo.
 - 「既存に合わせる」よりも「理想的な状態（読みやすさ・保守性・一貫性・安全性）」を優先する。
 - ただし、目的と釣り合わない大改修や無関係な改善はしない。
 - 根本原因を修正できる場合は、場当たり的なフォールバックや回避策を追加しない（ノイズ/負債化するため）。
@@ -112,6 +122,7 @@
 - 深いネストを避け、ガード節/関数分割で見通しを保つ。
 - 意図が分かる命名にする（曖昧な省略や「Utils」的な雑多化を避ける）。
 - ハードコードを避け、設定/定数/データへ寄せられるものは寄せる（変更点を1箇所に集約する）。
+- Always keep everything DRY (implementations, schemas, specs, docs, tests, configs, scripts, and any other artifacts): extract shared structures into reusable definitions/modules and reference them instead of duplicating.
 - 変更により不要になったコード/ヘルパー/分岐/コメント/暫定対応は、指示がなくても削除する（残すか迷う場合は確認する）。
 - 未使用の関数/型/定数/ファイルは残さず削除する（意図的に残す場合は理由を明記する）。
 
@@ -176,6 +187,7 @@ Write final responses to the user in Japanese unless the user requests otherwise
 - Populate public package metadata (name, description, repository, issues, homepage, engines) for published artifacts.
 - Validate executable entrypoints and any required shebangs so published commands run after install.
 - Run dependency security checks appropriate to the ecosystem before release and address critical issues.
+- Always run dependency security checks before release and report results in the final response.
 - When creating or updating LICENSE files, set the copyright holder name to "metyatech".
 
 # 品質（テスト・検証・エラーハンドリング）

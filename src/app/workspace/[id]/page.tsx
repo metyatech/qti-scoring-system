@@ -16,6 +16,7 @@ import {
   parseQtiResultsXml,
   remapResultToAssessmentItems,
 } from "@/utils/qtiParsing";
+import { getItemMaxScore, getItemScore, getRubricScore } from "@/utils/scoring";
 
 const fetchFileText = async (workspaceId: string, kind: string, name: string) => {
   const res = await fetch(`/api/workspaces/${workspaceId}/files?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}`);
@@ -34,7 +35,9 @@ export default function WorkspacePage() {
   const pageRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [viewMode, setViewMode] = useState<"candidate" | "item">("item");
+  const [currentResultIndex, setCurrentResultIndex] = useState(0);
+  const [currentItemIndex, setCurrentItemIndex] = useState(0);
   const [showBasicInfo, setShowBasicInfo] = useState(false);
   const [loopMessage, setLoopMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -107,7 +110,8 @@ export default function WorkspacePage() {
           return { ...result, itemResults: remapped.mappedItemResults };
         });
         setResults(mappedResults);
-        setCurrentIndex(0);
+        setCurrentResultIndex(0);
+        setCurrentItemIndex(0);
       } catch (err) {
         setError(err instanceof Error ? err.message : "ワークスペースの読み込みに失敗しました");
       } finally {
@@ -132,28 +136,27 @@ export default function WorkspacePage() {
     return () => observer.disconnect();
   }, [loading]);
 
-  const currentResult = results[currentIndex];
+  useEffect(() => {
+    if (results.length === 0) return;
+    setCurrentResultIndex((prev) => Math.min(prev, results.length - 1));
+  }, [results.length]);
 
-  const totalMaxScore = useMemo(() => {
-    return items.reduce((sum, item) => {
-      const max = item.rubric.reduce((s, c) => s + (Number.isFinite(c.points) ? c.points : 0), 0);
-      return sum + max;
-    }, 0);
-  }, [items]);
+  useEffect(() => {
+    if (items.length === 0) return;
+    setCurrentItemIndex((prev) => Math.min(prev, items.length - 1));
+  }, [items.length]);
+
+  const currentResult = results[currentResultIndex];
+  const currentItem = items[currentItemIndex];
+
+  const totalMaxScore = useMemo(() => items.reduce((sum, item) => sum + getItemMaxScore(item), 0), [items]);
 
   const currentScore = useMemo(() => {
     if (!currentResult) return 0;
     return items.reduce((sum, item) => {
       const itemResult = currentResult.itemResults[item.identifier];
-      if (typeof itemResult?.score === "number") {
-        return sum + itemResult.score;
-      }
-      if (!itemResult || item.rubric.length === 0) return sum;
-      const rubricScore = item.rubric.reduce((s, c) => {
-        const met = itemResult.rubricOutcomes[c.index];
-        return s + (met ? c.points : 0);
-      }, 0);
-      return sum + rubricScore;
+      const score = getItemScore(item, itemResult);
+      return sum + (score ?? 0);
     }, 0);
   }, [currentResult, items]);
 
@@ -162,22 +165,40 @@ export default function WorkspacePage() {
     setTimeout(() => setLoopMessage(null), 2000);
   };
 
-  const next = () => {
+  const nextCandidate = () => {
     if (!results.length) return;
-    const nextIndex = (currentIndex + 1) % results.length;
-    if (currentIndex === results.length - 1) {
+    const nextIndex = (currentResultIndex + 1) % results.length;
+    if (currentResultIndex === results.length - 1) {
       showLoop("最後から最初の受講者に戻りました");
     }
-    setCurrentIndex(nextIndex);
+    setCurrentResultIndex(nextIndex);
   };
 
-  const prev = () => {
+  const prevCandidate = () => {
     if (!results.length) return;
-    const prevIndex = (currentIndex - 1 + results.length) % results.length;
-    if (currentIndex === 0) {
+    const prevIndex = (currentResultIndex - 1 + results.length) % results.length;
+    if (currentResultIndex === 0) {
       showLoop("最初から最後の受講者に移動しました");
     }
-    setCurrentIndex(prevIndex);
+    setCurrentResultIndex(prevIndex);
+  };
+
+  const nextItem = () => {
+    if (!items.length) return;
+    const nextIndex = (currentItemIndex + 1) % items.length;
+    if (currentItemIndex === items.length - 1) {
+      showLoop("最後から最初の設問に戻りました");
+    }
+    setCurrentItemIndex(nextIndex);
+  };
+
+  const prevItem = () => {
+    if (!items.length) return;
+    const prevIndex = (currentItemIndex - 1 + items.length) % items.length;
+    if (currentItemIndex === 0) {
+      showLoop("最初から最後の設問に移動しました");
+    }
+    setCurrentItemIndex(prevIndex);
   };
 
   const formatResponse = (item: QtiItem, itemResult?: QtiResult["itemResults"][string]) => {
@@ -236,12 +257,16 @@ export default function WorkspacePage() {
     });
   };
 
-  const handleToggleCriterion = async (itemId: string, criterionIndex: number, value: boolean) => {
-    if (!currentResult) return;
-    const resultFile = currentResult.fileName;
+  const updateRubricOutcome = async (
+    resultFile: string,
+    itemId: string,
+    criterionIndex: number,
+    value: boolean
+  ) => {
     const prevResults = results;
     setSaving(true);
     setError(null);
+    let nextRubricOutcomes: Record<number, boolean> = {};
     setResults((prev) =>
       prev.map((res) => {
         if (res.fileName !== resultFile) return res;
@@ -250,25 +275,21 @@ export default function WorkspacePage() {
           response: null,
           rubricOutcomes: {},
         };
-        const rubricOutcomes = { ...itemResult.rubricOutcomes, [criterionIndex]: value };
+        nextRubricOutcomes = { ...itemResult.rubricOutcomes, [criterionIndex]: value };
         const item = items.find((i) => i.identifier === itemId);
-        const score = item
-          ? item.rubric.reduce((sum, c) => sum + (rubricOutcomes[c.index] ? c.points : 0), 0)
-          : itemResult.score;
+        const score = item ? getRubricScore(item, nextRubricOutcomes) : itemResult.score;
         return {
           ...res,
           itemResults: {
             ...res.itemResults,
-            [itemId]: { ...itemResult, rubricOutcomes, score },
+            [itemId]: { ...itemResult, rubricOutcomes: nextRubricOutcomes, score },
           },
         };
       })
     );
 
     try {
-      const itemResult = currentResult.itemResults[itemId];
-      const rubricOutcomes = { ...(itemResult?.rubricOutcomes || {}), [criterionIndex]: value };
-      await updateCriteria(resultFile, itemId, rubricOutcomes);
+      await updateCriteria(resultFile, itemId, nextRubricOutcomes);
     } catch (err) {
       setResults(prevResults);
       setError(err instanceof Error ? err.message : "採点結果の更新に失敗しました");
@@ -277,9 +298,7 @@ export default function WorkspacePage() {
     }
   };
 
-  const handleCommentBlur = async (itemId: string, comment: string) => {
-    if (!currentResult) return;
-    const resultFile = currentResult.fileName;
+  const updateResultComment = async (resultFile: string, itemId: string, comment: string) => {
     const prevResults = results;
     setSaving(true);
     setError(null);
@@ -311,6 +330,16 @@ export default function WorkspacePage() {
     }
   };
 
+  const handleToggleCriterion = async (itemId: string, criterionIndex: number, value: boolean) => {
+    if (!currentResult) return;
+    await updateRubricOutcome(currentResult.fileName, itemId, criterionIndex, value);
+  };
+
+  const handleCommentBlur = async (itemId: string, comment: string) => {
+    if (!currentResult) return;
+    await updateResultComment(currentResult.fileName, itemId, comment);
+  };
+
   const handleReportError = (message: string) => {
     if (!message) {
       setError(null);
@@ -331,6 +360,9 @@ export default function WorkspacePage() {
   }
   if (!currentResult) {
     return <div className="p-8 text-center text-gray-500">結果データがありません</div>;
+  }
+  if (!currentItem) {
+    return <div className="p-8 text-center text-gray-500">設問データがありません</div>;
   }
 
   return (
@@ -370,20 +402,42 @@ export default function WorkspacePage() {
           )}
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4 flex-wrap">
-              <div className="text-xl font-bold text-gray-800">
-                {currentResult.candidateName}
-              </div>
-              <div className="text-sm text-gray-500">
-                {currentIndex + 1} / {results.length}
-              </div>
-              {totalMaxScore > 0 ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-700">
-                    合計: <span className="text-blue-600">{currentScore}</span> / {totalMaxScore}
-                  </span>
-                </div>
+              {viewMode === "candidate" ? (
+                <>
+                  <div className="text-xl font-bold text-gray-800">
+                    {currentResult.candidateName}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {currentResultIndex + 1} / {results.length}
+                  </div>
+                  {totalMaxScore > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        合計: <span className="text-blue-600">{currentScore}</span> / {totalMaxScore}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">採点基準がありません</span>
+                  )}
+                </>
               ) : (
-                <span className="text-xs text-gray-400">採点基準がありません</span>
+                <>
+                  <div className="text-xl font-bold text-gray-800">
+                    問{currentItemIndex + 1}: {currentItem.title}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {currentItemIndex + 1} / {items.length}
+                  </div>
+                  {currentItem.rubric.length > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        配点: <span className="text-blue-600">{getItemMaxScore(currentItem)}</span>
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">採点基準がありません</span>
+                  )}
+                </>
               )}
               <button
                 onClick={() => setShowBasicInfo(!showBasicInfo)}
@@ -393,113 +447,253 @@ export default function WorkspacePage() {
               </button>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={prev}
-                disabled={results.length <= 1}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-              >
-                ← 前
-              </button>
-              <button
-                onClick={next}
-                disabled={results.length <= 1}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-              >
-                次 →
-              </button>
+              <div className="flex rounded-md border border-gray-200 overflow-hidden">
+                <button
+                  onClick={() => setViewMode("item")}
+                  className={`px-3 py-2 text-sm ${viewMode === "item" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                >
+                  設問ごと
+                </button>
+                <button
+                  onClick={() => setViewMode("candidate")}
+                  className={`px-3 py-2 text-sm ${viewMode === "candidate" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                >
+                  受講者ごと
+                </button>
+              </div>
+              {viewMode === "candidate" ? (
+                <>
+                  <button
+                    onClick={prevCandidate}
+                    disabled={results.length <= 1}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    ← 前
+                  </button>
+                  <button
+                    onClick={nextCandidate}
+                    disabled={results.length <= 1}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    次 →
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={prevItem}
+                    disabled={items.length <= 1}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    ← 前
+                  </button>
+                  <button
+                    onClick={nextItem}
+                    disabled={items.length <= 1}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    次 →
+                  </button>
+                </>
+              )}
             </div>
           </div>
           {showBasicInfo && (
-            <div className="mt-4 pt-4 border-t border-gray-200 text-sm grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div>
-                <span className="text-gray-500">sourcedId:</span> {currentResult.sourcedId || "未設定"}
-              </div>
-              <div>
-                <span className="text-gray-500">result file:</span> {currentResult.fileName}
-              </div>
-              <div>
-                <span className="text-gray-500">items:</span> {items.length}
-              </div>
-            </div>
+            <>
+              {viewMode === "candidate" ? (
+                <div className="mt-4 pt-4 border-t border-gray-200 text-sm grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div>
+                    <span className="text-gray-500">sourcedId:</span> {currentResult.sourcedId || "未設定"}
+                  </div>
+                  <div>
+                    <span className="text-gray-500">result file:</span> {currentResult.fileName}
+                  </div>
+                  <div>
+                    <span className="text-gray-500">items:</span> {items.length}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 pt-4 border-t border-gray-200 text-sm grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div>
+                    <span className="text-gray-500">identifier:</span> {currentItem.identifier}
+                  </div>
+                  <div>
+                    <span className="text-gray-500">rubric:</span> {currentItem.rubric.length}
+                  </div>
+                  <div>
+                    <span className="text-gray-500">candidates:</span> {results.length}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        <div className="space-y-6">
-          {items.map((item, index) => {
-            const itemResult = currentResult.itemResults[item.identifier];
-            const responseText = formatResponse(item, itemResult);
-            const displayPromptHtml =
-              item.type === "cloze"
-                ? applyResponsesToPromptHtml(item.promptHtml, itemResult?.response)
-                : item.promptHtml;
-            const rubric = item.rubric;
-            const comment = itemResult?.comment ?? "";
-            return (
-              <div key={item.identifier} className="bg-white border rounded-lg p-6 shadow-sm">
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="bg-blue-600 text-white text-sm font-bold px-3 py-1 rounded-md">
-                    問{index + 1}
-                  </span>
-                  <h2 className="text-lg font-semibold text-gray-800">{item.title}</h2>
+        {viewMode === "candidate" ? (
+          <div className="space-y-6">
+            {items.map((item, index) => {
+              const itemResult = currentResult.itemResults[item.identifier];
+              const responseText = formatResponse(item, itemResult);
+              const displayPromptHtml =
+                item.type === "cloze"
+                  ? applyResponsesToPromptHtml(item.promptHtml, itemResult?.response)
+                  : item.promptHtml;
+              const rubric = item.rubric;
+              const comment = itemResult?.comment ?? "";
+              return (
+                <div key={item.identifier} className="bg-white border rounded-lg p-6 shadow-sm">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="bg-blue-600 text-white text-sm font-bold px-3 py-1 rounded-md">
+                      問{index + 1}
+                    </span>
+                    <h2 className="text-lg font-semibold text-gray-800">{item.title}</h2>
+                  </div>
+                  <div
+                    className="prose max-w-none qti-prompt"
+                    dangerouslySetInnerHTML={{ __html: displayPromptHtml }}
+                  />
+                  {item.type !== "cloze" && (
+                    <div className="mt-4 bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500 text-sm text-gray-800 whitespace-pre-wrap">
+                      {responseText}
+                    </div>
+                  )}
+
+                  {item.candidateExplanationHtml && (
+                    <ExplanationPanel html={item.candidateExplanationHtml} />
+                  )}
+
+                  {rubric.length > 0 && (
+                    <div className="mt-5 border-t pt-4">
+                      <div className="text-xs text-gray-500 mb-2">採点基準</div>
+                      <div className="space-y-2">
+                        {rubric.map((criterion) => {
+                          const value = itemResult?.rubricOutcomes[criterion.index];
+                          return (
+                            <div key={criterion.index} className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleCriterion(item.identifier, criterion.index, true)}
+                                className={`px-2 py-1 rounded text-xs border ${value === true ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-600 border-gray-300"}`}
+                              >
+                                〇
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleCriterion(item.identifier, criterion.index, false)}
+                                className={`px-2 py-1 rounded text-xs border ${value === false ? "bg-red-600 text-white border-red-600" : "bg-white text-gray-600 border-gray-300"}`}
+                              >
+                                ×
+                              </button>
+                              <span className="text-xs text-gray-700">
+                                [{criterion.points}] {criterion.text}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-3">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">コメント</label>
+                        <textarea
+                          className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows={2}
+                          defaultValue={comment}
+                          onBlur={(e) => handleCommentBlur(item.identifier, e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div
-                  className="prose max-w-none qti-prompt"
-                  dangerouslySetInnerHTML={{ __html: displayPromptHtml }}
-                />
-                {item.type !== "cloze" && (
-                  <div className="mt-4 bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500 text-sm text-gray-800 whitespace-pre-wrap">
-                    {responseText}
-                  </div>
-                )}
-
-                {item.candidateExplanationHtml && (
-                  <ExplanationPanel html={item.candidateExplanationHtml} />
-                )}
-
-                {rubric.length > 0 && (
-                  <div className="mt-5 border-t pt-4">
-                    <div className="text-xs text-gray-500 mb-2">採点基準</div>
-                    <div className="space-y-2">
-                      {rubric.map((criterion) => {
-                        const value = itemResult?.rubricOutcomes[criterion.index];
-                        return (
-                          <div key={criterion.index} className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleCriterion(item.identifier, criterion.index, true)}
-                              className={`px-2 py-1 rounded text-xs border ${value === true ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-600 border-gray-300"}`}
-                            >
-                              〇
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleCriterion(item.identifier, criterion.index, false)}
-                              className={`px-2 py-1 rounded text-xs border ${value === false ? "bg-red-600 text-white border-red-600" : "bg-white text-gray-600 border-gray-300"}`}
-                            >
-                              ×
-                            </button>
-                            <span className="text-xs text-gray-700">
-                              [{criterion.points}] {criterion.text}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="mt-3">
-                      <label className="block text-xs font-medium text-gray-600 mb-1">コメント</label>
-                      <textarea
-                        className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        rows={2}
-                        defaultValue={comment}
-                        onBlur={(e) => handleCommentBlur(item.identifier, e.target.value)}
-                      />
-                    </div>
-                  </div>
-                )}
+              );
+            })}
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="bg-white border rounded-lg p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-3">
+                <span className="bg-blue-600 text-white text-sm font-bold px-3 py-1 rounded-md">
+                  問{currentItemIndex + 1}
+                </span>
+                <h2 className="text-lg font-semibold text-gray-800">{currentItem.title}</h2>
               </div>
-            );
-          })}
-        </div>
+              <div
+                className="prose max-w-none qti-prompt"
+                dangerouslySetInnerHTML={{ __html: currentItem.promptHtml }}
+              />
+              {currentItem.candidateExplanationHtml && (
+                <ExplanationPanel html={currentItem.candidateExplanationHtml} />
+              )}
+            </div>
+
+            <div className="space-y-4">
+              {results.map((result) => {
+                const itemResult = result.itemResults[currentItem.identifier];
+                const responseText = formatResponse(currentItem, itemResult);
+                const comment = itemResult?.comment ?? "";
+                const itemScore = getItemScore(currentItem, itemResult);
+                return (
+                  <div key={result.fileName} className="bg-white border rounded-lg p-6 shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                      <div className="text-base font-semibold text-gray-800">{result.candidateName}</div>
+                      {currentItem.rubric.length > 0 && (
+                        <span className="text-sm text-gray-600">
+                          得点: <span className="text-blue-600">{itemScore ?? 0}</span> / {getItemMaxScore(currentItem)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500 text-sm text-gray-800 whitespace-pre-wrap">
+                      {responseText}
+                    </div>
+
+                    {currentItem.rubric.length > 0 && (
+                      <div className="mt-5 border-t pt-4">
+                        <div className="text-xs text-gray-500 mb-2">採点基準</div>
+                        <div className="space-y-2">
+                          {currentItem.rubric.map((criterion) => {
+                            const value = itemResult?.rubricOutcomes[criterion.index];
+                            return (
+                              <div key={criterion.index} className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateRubricOutcome(result.fileName, currentItem.identifier, criterion.index, true)
+                                  }
+                                  className={`px-2 py-1 rounded text-xs border ${value === true ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-600 border-gray-300"}`}
+                                >
+                                  〇
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateRubricOutcome(result.fileName, currentItem.identifier, criterion.index, false)
+                                  }
+                                  className={`px-2 py-1 rounded text-xs border ${value === false ? "bg-red-600 text-white border-red-600" : "bg-white text-gray-600 border-gray-300"}`}
+                                >
+                                  ×
+                                </button>
+                                <span className="text-xs text-gray-700">
+                                  [{criterion.points}] {criterion.text}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="mt-3">
+                          <label className="block text-xs font-medium text-gray-600 mb-1">コメント</label>
+                          <textarea
+                            className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            rows={2}
+                            defaultValue={comment}
+                            onBlur={(e) => updateResultComment(result.fileName, currentItem.identifier, e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
