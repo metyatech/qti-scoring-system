@@ -9,7 +9,10 @@ export const getRubricScore = (item: QtiItem, rubricOutcomes: Record<number, boo
 };
 
 export const getItemScore = (item: QtiItem, itemResult?: QtiItemResult): number | null => {
-  if (typeof itemResult?.score === 'number') return itemResult.score;
-  if (!itemResult || item.rubric.length === 0) return null;
-  return getRubricScore(item, itemResult.rubricOutcomes);
+  if (!itemResult) return null;
+  if (item.rubric.length > 0) {
+    return getRubricScore(item, itemResult.rubricOutcomes);
+  }
+  if (typeof itemResult.score === 'number') return itemResult.score;
+  return null;
 };

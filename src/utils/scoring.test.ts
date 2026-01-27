@@ -25,14 +25,14 @@ describe('scoring helpers', () => {
     expect(getRubricScore(baseItem, { 1: true, 2: true })).toBe(3);
   });
 
-  it('prefers explicit score when provided', () => {
+  it('uses rubric outcomes when rubric exists even if score is present', () => {
     const result: QtiItemResult = {
       resultIdentifier: 'item-1',
       response: 'A',
       score: 5,
-      rubricOutcomes: { 1: true },
+      rubricOutcomes: { 1: true, 2: true },
     };
-    expect(getItemScore(baseItem, result)).toBe(5);
+    expect(getItemScore(baseItem, result)).toBe(3);
   });
 
   it('returns null when no result and no rubric data', () => {
@@ -47,5 +47,16 @@ describe('scoring helpers', () => {
       rubricOutcomes: { 1: false, 2: true },
     };
     expect(getItemScore(baseItem, result)).toBe(1);
+  });
+
+  it('uses explicit score when rubric is absent', () => {
+    const itemNoRubric: QtiItem = { ...baseItem, rubric: [] };
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'A',
+      score: 4,
+      rubricOutcomes: {},
+    };
+    expect(getItemScore(itemNoRubric, result)).toBe(4);
   });
 });

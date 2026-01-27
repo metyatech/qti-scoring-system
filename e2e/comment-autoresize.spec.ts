@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import path from 'path';
 import JSZip from 'jszip';
 
-const createWorkspace = async (page: Page, name: string) => {
+const createWorkspace = async (page: Page, name: string, resultsFile = 'assessmentResult-1.xml') => {
   await page.goto('/workspace/new');
   await page.getByLabel('ワークスペース名 *').fill(name);
 
@@ -11,10 +11,20 @@ const createWorkspace = async (page: Page, name: string) => {
 
   const resultsInput = page.locator('input[type="file"]').nth(1);
   await resultsInput.setInputFiles(
-    path.join(process.cwd(), 'e2e', 'fixtures', 'results', 'assessmentResult-1.xml')
+    path.join(process.cwd(), 'e2e', 'fixtures', 'results', resultsFile)
   );
 
+  const createResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/api/workspaces')
+  );
   await page.getByRole('button', { name: 'ワークスペースを作成' }).click();
+  const response = await createResponse;
+  if (!response.ok()) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body?.error ?? `workspace create failed: ${response.status()}`);
+  }
   await page.waitForURL(/\/workspace\/(?!new$).+/);
 
   const url = new URL(page.url());
@@ -33,9 +43,10 @@ const deleteWorkspace = async (page: Page, workspaceId: string) => {
 const withWorkspace = async (
   page: Page,
   name: string,
-  run: (workspaceId: string) => Promise<void>
+  run: (workspaceId: string) => Promise<void>,
+  resultsFile?: string
 ) => {
-  const workspaceId = await createWorkspace(page, name);
+  const workspaceId = await createWorkspace(page, name, resultsFile);
   try {
     await run(workspaceId);
   } finally {
@@ -158,4 +169,11 @@ test('export includes updated rubric and comment', async ({ page }) => {
     expect(xml).toMatch(/<outcomeVariable identifier="RUBRIC_1_MET"[\s\S]*?<value>true<\/value>/);
     expect(xml).toMatch(/<outcomeVariable identifier="COMMENT"[\s\S]*?<value>Exported comment<\/value>/);
   });
+});
+
+test('total score reflects rubric outcomes even when item score is stale', async ({ page }) => {
+  await withWorkspace(page, 'E2E Total Score', async () => {
+    await page.getByRole('button', { name: '受講者ごと' }).click();
+    await expect(page.getByText(/合計:\s*3\s*\/\s*3/)).toBeVisible();
+  }, 'assessmentResult-score-stale.xml');
 });
