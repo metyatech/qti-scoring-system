@@ -62,7 +62,9 @@ test('save feedback appears after scoring update', async ({ page }) => {
   const response = await saveResponse;
   expect(response.status()).toBe(200);
 
-  await expect(page.getByTestId('save-status-assessmentResult-1.xml-item-1')).toContainText('保存しました');
+  await expect(page.getByTestId('save-status-assessmentResult-1.xml-item-1-criterion-1')).toContainText(
+    '保存しました'
+  );
 });
 
 test('clearing a comment removes it without errors', async ({ page }) => {
@@ -84,5 +86,5 @@ test('clearing a comment removes it without errors', async ({ page }) => {
 
   await page.reload();
   await expect(page.locator('textarea').first()).toHaveValue('');
-  await expect(page.getByTestId('save-status-assessmentResult-1.xml-item-1')).toHaveCount(0);
+  await expect(page.getByTestId('save-status-assessmentResult-1.xml-item-1-comment')).toHaveCount(0);
 });

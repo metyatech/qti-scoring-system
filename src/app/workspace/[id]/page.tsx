@@ -44,7 +44,7 @@ export default function WorkspacePage() {
   const [loopMessage, setLoopMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showItemPreview, setShowItemPreview] = useState(false);
-  const [saveStatusByKey, setSaveStatusByKey] = useState<Record<string, "idle" | "saving" | "saved">>({});
+  const [saveStatusByKey, setSaveStatusByKey] = useState<Record<string, "saving" | "saved">>({});
   const saveStatusTimersRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
@@ -187,7 +187,9 @@ export default function WorkspacePage() {
     setTimeout(() => setLoopMessage(null), 2000);
   };
 
-  const makeSaveKey = (resultFile: string, itemId: string) => `${resultFile}::${itemId}`;
+  const makeCommentKey = (resultFile: string, itemId: string) => `${resultFile}::${itemId}::comment`;
+  const makeCriterionKey = (resultFile: string, itemId: string, criterionIndex: number) =>
+    `${resultFile}::${itemId}::criterion::${criterionIndex}`;
 
   const startSaveFeedback = (key: string) => {
     const existing = saveStatusTimersRef.current[key];
@@ -329,7 +331,7 @@ export default function WorkspacePage() {
     const prevResults = results;
     setSaving(true);
     setError(null);
-    const saveKey = makeSaveKey(resultFile, itemId);
+    const saveKey = makeCriterionKey(resultFile, itemId, criterionIndex);
     startSaveFeedback(saveKey);
     let nextRubricOutcomes: Record<number, boolean> = {};
     setResults((prev) =>
@@ -369,7 +371,7 @@ export default function WorkspacePage() {
     const prevResults = results;
     setSaving(true);
     setError(null);
-    const saveKey = makeSaveKey(resultFile, itemId);
+    const saveKey = makeCommentKey(resultFile, itemId);
     startSaveFeedback(saveKey);
     setResults((prev) => updateItemComment(prev, resultFile, itemId, comment));
 
@@ -599,8 +601,8 @@ export default function WorkspacePage() {
                   : item.promptHtml;
               const rubric = item.rubric;
               const comment = itemResult?.comment ?? "";
-              const saveKey = makeSaveKey(currentResult.fileName, item.identifier);
-              const saveStatus = saveStatusByKey[saveKey] ?? "idle";
+              const commentKey = makeCommentKey(currentResult.fileName, item.identifier);
+              const commentStatus = saveStatusByKey[commentKey];
               return (
                 <div key={item.identifier} className="bg-white border rounded-lg p-6 shadow-sm">
                   <div className="flex items-center gap-3 mb-3">
@@ -629,6 +631,12 @@ export default function WorkspacePage() {
                       <div className="space-y-2">
                         {rubric.map((criterion) => {
                           const value = itemResult?.rubricOutcomes[criterion.index];
+                          const criterionKey = makeCriterionKey(
+                            currentResult.fileName,
+                            item.identifier,
+                            criterion.index
+                          );
+                          const criterionStatus = saveStatusByKey[criterionKey];
                           return (
                             <div key={criterion.index} className="flex items-center gap-2">
                               <button
@@ -648,6 +656,15 @@ export default function WorkspacePage() {
                               <span className="text-xs text-gray-700">
                                 [{criterion.points}] {criterion.text}
                               </span>
+                              {criterionStatus && (
+                                <span
+                                  className={`text-xs ${criterionStatus === "saving" ? "text-gray-500" : "text-green-600"}`}
+                                  data-testid={`save-status-${currentResult.fileName}-${item.identifier}-criterion-${criterion.index}`}
+                                  aria-live="polite"
+                                >
+                                  {criterionStatus === "saving" ? "保存中..." : "保存しました"}
+                                </span>
+                              )}
                             </div>
                           );
                         })}
@@ -655,13 +672,13 @@ export default function WorkspacePage() {
                       <div className="mt-3">
                         <div className="flex items-center justify-between mb-1">
                           <label className="block text-xs font-medium text-gray-600">コメント</label>
-                          {saveStatus !== "idle" && (
+                          {commentStatus && (
                             <span
-                              className={`text-xs ${saveStatus === "saving" ? "text-gray-500" : "text-green-600"}`}
-                              data-testid={`save-status-${currentResult.fileName}-${item.identifier}`}
+                              className={`text-xs ${commentStatus === "saving" ? "text-gray-500" : "text-green-600"}`}
+                              data-testid={`save-status-${currentResult.fileName}-${item.identifier}-comment`}
                               aria-live="polite"
                             >
-                              {saveStatus === "saving" ? "保存中..." : "保存しました"}
+                              {commentStatus === "saving" ? "保存中..." : "保存しました"}
                             </span>
                           )}
                         </div>
@@ -703,8 +720,8 @@ export default function WorkspacePage() {
                 const responseText = formatResponse(currentItem, itemResult);
                 const comment = itemResult?.comment ?? "";
                 const itemScore = getItemScore(currentItem, itemResult);
-                const saveKey = makeSaveKey(result.fileName, currentItem.identifier);
-                const saveStatus = saveStatusByKey[saveKey] ?? "idle";
+                const commentKey = makeCommentKey(result.fileName, currentItem.identifier);
+                const commentStatus = saveStatusByKey[commentKey];
                 return (
                   <div key={result.fileName} className="bg-white border rounded-lg p-6 shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -725,6 +742,12 @@ export default function WorkspacePage() {
                         <div className="space-y-2">
                           {currentItem.rubric.map((criterion) => {
                             const value = itemResult?.rubricOutcomes[criterion.index];
+                            const criterionKey = makeCriterionKey(
+                              result.fileName,
+                              currentItem.identifier,
+                              criterion.index
+                            );
+                            const criterionStatus = saveStatusByKey[criterionKey];
                             return (
                               <div key={criterion.index} className="flex items-center gap-2">
                                 <button
@@ -748,6 +771,15 @@ export default function WorkspacePage() {
                                 <span className="text-xs text-gray-700">
                                   [{criterion.points}] {criterion.text}
                                 </span>
+                                {criterionStatus && (
+                                  <span
+                                    className={`text-xs ${criterionStatus === "saving" ? "text-gray-500" : "text-green-600"}`}
+                                    data-testid={`save-status-${result.fileName}-${currentItem.identifier}-criterion-${criterion.index}`}
+                                    aria-live="polite"
+                                  >
+                                    {criterionStatus === "saving" ? "保存中..." : "保存しました"}
+                                  </span>
+                                )}
                               </div>
                             );
                           })}
@@ -755,13 +787,13 @@ export default function WorkspacePage() {
                         <div className="mt-3">
                           <div className="flex items-center justify-between mb-1">
                             <label className="block text-xs font-medium text-gray-600">コメント</label>
-                            {saveStatus !== "idle" && (
+                            {commentStatus && (
                               <span
-                                className={`text-xs ${saveStatus === "saving" ? "text-gray-500" : "text-green-600"}`}
-                                data-testid={`save-status-${result.fileName}-${currentItem.identifier}`}
+                                className={`text-xs ${commentStatus === "saving" ? "text-gray-500" : "text-green-600"}`}
+                                data-testid={`save-status-${result.fileName}-${currentItem.identifier}-comment`}
                                 aria-live="polite"
                               >
-                                {saveStatus === "saving" ? "保存中..." : "保存しました"}
+                                {commentStatus === "saving" ? "保存中..." : "保存しました"}
                               </span>
                             )}
                           </div>
