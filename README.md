@@ -76,4 +76,8 @@ npm run lint
 
 # テスト実行
 npm run test
+
+# E2E テスト実行（初回はブラウザのインストールが必要）
+npx playwright install chromium
+npm run test:e2e
 ```

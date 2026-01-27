@@ -207,6 +207,7 @@ Write final responses to the user in Japanese unless the user requests otherwise
 ## テスト
 
 - 進め方: 実装や修正より先にテストを追加し、先に失敗を確認してから本実装を行う（test-first）を必ず守る。
+- Always add end-to-end (E2E) tests for user-visible changes. If an E2E harness is missing, add one in the same change set (prefer existing ecosystem tools) and run it; if it cannot be run, document why and provide a manual verification plan.
 - 常に多様な入力パターンを想定したテストを作成する（必須）。
 - テストは、合理的に想定できる限りの観点を網羅する（成功/失敗/境界値/無効入力/状態遷移/並行実行/再試行/回復など）。不足がある場合は理由と代替検証を明記し、ユーザーの明示許可を得る。
 - 最小のテストだけにせず、期待される挙動の全範囲（成功/失敗、境界値、無効入力、代表的な状態遷移）を網羅する。

@@ -8,6 +8,7 @@ import { rewriteHtmlImageSources } from "@/utils/assetUrl";
 import { applyResponsesToPromptHtml } from "@/utils/qtiBlankResponses";
 import ExplanationPanel from "@/components/ExplanationPanel";
 import ReportDownloadButton from "@/components/ReportDownloadButton";
+import AutoResizeTextarea from "@/components/AutoResizeTextarea";
 import {
   QtiItem,
   QtiResult,
@@ -582,12 +583,12 @@ export default function WorkspacePage() {
                       </div>
                       <div className="mt-3">
                         <label className="block text-xs font-medium text-gray-600 mb-1">コメント</label>
-                        <textarea
+                        <AutoResizeTextarea
                           className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           rows={2}
                           value={comment}
-                          onChange={(e) => handleCommentChange(currentResult.fileName, item.identifier, e.target.value)}
-                          onBlur={(e) => handleCommentBlur(item.identifier, e.target.value)}
+                          onChange={(value) => handleCommentChange(currentResult.fileName, item.identifier, value)}
+                          onBlur={(value) => handleCommentBlur(item.identifier, value)}
                         />
                       </div>
                     </div>
@@ -669,14 +670,12 @@ export default function WorkspacePage() {
                         </div>
                         <div className="mt-3">
                           <label className="block text-xs font-medium text-gray-600 mb-1">コメント</label>
-                          <textarea
+                          <AutoResizeTextarea
                             className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             rows={2}
                             value={comment}
-                            onChange={(e) =>
-                              handleCommentChange(result.fileName, currentItem.identifier, e.target.value)
-                            }
-                            onBlur={(e) => updateResultComment(result.fileName, currentItem.identifier, e.target.value)}
+                            onChange={(value) => handleCommentChange(result.fileName, currentItem.identifier, value)}
+                            onBlur={(value) => updateResultComment(result.fileName, currentItem.identifier, value)}
                           />
                         </div>
                       </div>

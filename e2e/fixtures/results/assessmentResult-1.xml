@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<assessmentResult xmlns="http://www.imsglobal.org/xsd/imsqti_result_v3p0">
+  <context sourcedId="e2e-user">
+    <sessionIdentifier sourceID="candidateName" identifier="E2E User" />
+  </context>
+  <itemResult identifier="item-1" sequenceIndex="1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final">
+    <responseVariable identifier="RESPONSE" cardinality="single" baseType="string">
+      <candidateResponse><value>Test</value></candidateResponse>
+    </responseVariable>
+  </itemResult>
+</assessmentResult>
