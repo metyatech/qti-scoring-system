@@ -43,6 +43,7 @@ export default function WorkspacePage() {
   const [showBasicInfo, setShowBasicInfo] = useState(false);
   const [loopMessage, setLoopMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showItemPreview, setShowItemPreview] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -147,6 +148,12 @@ export default function WorkspacePage() {
     if (items.length === 0) return;
     setCurrentItemIndex((prev) => Math.min(prev, items.length - 1));
   }, [items.length]);
+
+  useEffect(() => {
+    if (viewMode !== "item") {
+      setShowItemPreview(false);
+    }
+  }, [viewMode]);
 
   const currentResult = results[currentResultIndex];
   const currentItem = items[currentItemIndex];
@@ -685,6 +692,47 @@ export default function WorkspacePage() {
               })}
             </div>
           </div>
+        )}
+        {viewMode === "item" && (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowItemPreview(true)}
+              className="fixed bottom-6 right-6 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+            >
+              設問を開く
+            </button>
+            {showItemPreview && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold text-gray-800">設問プレビュー</h2>
+                    <button
+                      type="button"
+                      onClick={() => setShowItemPreview(false)}
+                      className="text-sm text-gray-600 hover:text-gray-800"
+                    >
+                      閉じる
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="bg-blue-600 text-white text-sm font-bold px-3 py-1 rounded-md">
+                      問{currentItemIndex + 1}
+                    </span>
+                    <h3 className="text-base font-semibold text-gray-800">{currentItem.title}</h3>
+                  </div>
+                  <div
+                    className="prose max-w-none qti-prompt"
+                    data-testid="item-preview-body"
+                    dangerouslySetInnerHTML={{ __html: currentItem.promptHtml }}
+                  />
+                  {currentItem.candidateExplanationHtml && (
+                    <ExplanationPanel html={currentItem.candidateExplanationHtml} />
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

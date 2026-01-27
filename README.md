@@ -8,6 +8,7 @@ QTI 3.0 の assessment item / Results Reporting を読み込み、採点とコ�
 - ✅ QTI 3.0 assessment-test / Results Reporting XML のアップロード
 - ✅ 受講者ごとの回答表示（前へ/次へナビゲーション）
 - ✅ 設問ごとの採点ビュー（設問単位で受講者の採点）
+- ✅ 設問ごとのクイックプレビュー（設問内容を即時表示）
 - ✅ 採点基準（rubric）に基づく採点
 - ✅ コメントの保存（Results Reporting の `COMMENT` outcome）
 - ✅ 結果レポート（HTML/CSV/Results XML）のZIPダウンロード
