@@ -283,17 +283,15 @@ export default function WorkspacePage() {
   const updateCriteria = async (
     resultFile: string,
     itemId: string,
-    rubricOutcomes: Record<number, boolean>
+    criterionIndex: number,
+    value: boolean
   ) => {
     const item = items.find((i) => i.identifier === itemId);
     if (!item || item.rubric.length === 0) return;
-    const criteria = item.rubric.map((c) => {
-      const met = rubricOutcomes[c.index];
-      return {
-        criterionText: c.text,
-        ...(typeof met === "boolean" ? { met } : {}),
-      };
-    });
+    const criteria = item.rubric.map((c) => ({
+      criterionText: c.text,
+      ...(c.index === criterionIndex ? { met: value } : {}),
+    }));
     await fetch(`/api/workspaces/${id}/results`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -359,7 +357,7 @@ export default function WorkspacePage() {
     );
 
     try {
-      await updateCriteria(resultFile, itemId, nextRubricOutcomes);
+      await updateCriteria(resultFile, itemId, criterionIndex, value);
       finishSaveFeedback(saveKey, "saved");
     } catch (err) {
       setResults(prevResults);
