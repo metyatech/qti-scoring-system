@@ -23,8 +23,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ error: 'ワークスペースが見つかりません' }, { status: 404 });
     }
     const buffer = await createWorkspaceExportZip(workspaceId);
+    const body = new Uint8Array(buffer);
     const fileName = buildExportFileName(workspace.name);
-    return new NextResponse(buffer, {
+    return new NextResponse(body, {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': buildContentDisposition(fileName, 'workspace-export.zip'),

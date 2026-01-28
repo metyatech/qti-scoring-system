@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { QtiWorkspace } from "@/types/qti";
-import { highlightCodeBlocks } from "@/utils/highlight";
 import { rewriteHtmlImageSources } from "@/utils/assetUrl";
 import { applyResponsesToPromptHtml } from "@/utils/qtiBlankResponses";
 import ExplanationPanel from "@/components/ExplanationPanel";
@@ -19,6 +18,7 @@ import {
 } from "@/utils/qtiParsing";
 import { getItemMaxScore, getItemScore, getRubricScore } from "@/utils/scoring";
 import { updateItemComment } from "@/utils/resultUpdates";
+import { useHighlightCodeBlocks } from "@/hooks/useHighlightCodeBlocks";
 
 const fetchFileText = async (workspaceId: string, kind: string, name: string) => {
   const res = await fetch(`/api/workspaces/${workspaceId}/files?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}`);
@@ -46,6 +46,11 @@ export default function WorkspacePage() {
   const [showItemPreview, setShowItemPreview] = useState(false);
   const [saveStatusByKey, setSaveStatusByKey] = useState<Record<string, "saving" | "saved">>({});
   const saveStatusTimersRef = useRef<Record<string, number>>({});
+
+  const highlightDeps = useMemo(
+    () => [viewMode, currentResultIndex, currentItemIndex, showItemPreview, items.length],
+    [viewMode, currentResultIndex, currentItemIndex, showItemPreview, items.length]
+  );
 
   useEffect(() => {
     if (!id) return;
@@ -126,20 +131,7 @@ export default function WorkspacePage() {
     load();
   }, [id]);
 
-  useEffect(() => {
-    if (loading || !pageRef.current) return;
-    const root = pageRef.current;
-    const runHighlight = () => highlightCodeBlocks(root);
-
-    runHighlight();
-
-    const observer = new MutationObserver(() => {
-      runHighlight();
-    });
-    observer.observe(root, { childList: true, subtree: true });
-
-    return () => observer.disconnect();
-  }, [loading]);
+  useHighlightCodeBlocks(pageRef, highlightDeps, !loading);
 
   useEffect(() => {
     if (results.length === 0) return;

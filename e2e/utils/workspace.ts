@@ -3,16 +3,22 @@ import type { APIRequestContext, Page } from '@playwright/test';
 
 const createdWorkspaceIds = new Set<string>();
 
-export const createWorkspace = async (page: Page, name: string, resultsFile = 'assessmentResult-1.xml') => {
+export const createWorkspace = async (
+  page: Page,
+  name: string,
+  resultsFiles: string | string[] = 'assessmentResult-1.xml',
+  assessmentFolder = 'assessment'
+) => {
   await page.goto('/workspace/new');
   await page.getByLabel('ワークスペース名 *').fill(name);
 
   const assessmentInput = page.locator('input[type="file"]').nth(0);
-  await assessmentInput.setInputFiles(path.join(process.cwd(), 'e2e', 'fixtures', 'assessment'));
+  await assessmentInput.setInputFiles(path.join(process.cwd(), 'e2e', 'fixtures', assessmentFolder));
 
   const resultsInput = page.locator('input[type="file"]').nth(1);
+  const resolvedResultsFiles = Array.isArray(resultsFiles) ? resultsFiles : [resultsFiles];
   await resultsInput.setInputFiles(
-    path.join(process.cwd(), 'e2e', 'fixtures', 'results', resultsFile)
+    resolvedResultsFiles.map((file) => path.join(process.cwd(), 'e2e', 'fixtures', 'results', file))
   );
 
   const createResponse = page.waitForResponse(
@@ -53,9 +59,10 @@ export const withWorkspace = async (
   page: Page,
   name: string,
   run: (workspaceId: string) => Promise<void>,
-  resultsFile?: string
+  resultsFiles?: string | string[],
+  assessmentFolder?: string
 ) => {
-  const workspaceId = await createWorkspace(page, name, resultsFile);
+  const workspaceId = await createWorkspace(page, name, resultsFiles, assessmentFolder);
   try {
     await run(workspaceId);
   } finally {
