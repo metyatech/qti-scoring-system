@@ -22,3 +22,10 @@ export const updateItemComment = (
     };
   });
 };
+
+export const buildCriteriaUpdate = (
+  rubric: Array<{ index: number }>,
+  criterionIndex: number,
+  value: boolean
+): Array<{ met?: boolean }> =>
+  rubric.map((criterion) => (criterion.index === criterionIndex ? { met: value } : {}));

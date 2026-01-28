@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { updateItemComment } from '@/utils/resultUpdates';
+import { buildCriteriaUpdate, updateItemComment } from '@/utils/resultUpdates';
 import type { QtiResult } from '@/utils/qtiParsing';
 
 describe('updateItemComment', () => {
@@ -48,5 +48,17 @@ describe('updateItemComment', () => {
     expect(updated).not.toBe(baseResults);
     expect(updated[0]).toBe(baseResults[0]);
     expect(updated[1]).not.toBe(baseResults[1]);
+  });
+});
+
+describe('buildCriteriaUpdate', () => {
+  it('sets met only for the target criterion index', () => {
+    const rubric = [{ index: 1 }, { index: 2 }, { index: 3 }];
+    const criteria = buildCriteriaUpdate(rubric, 2, true);
+
+    expect(criteria).toHaveLength(3);
+    expect(Object.prototype.hasOwnProperty.call(criteria[0], 'met')).toBe(false);
+    expect(criteria[1].met).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(criteria[2], 'met')).toBe(false);
   });
 });

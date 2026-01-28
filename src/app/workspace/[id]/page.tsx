@@ -17,7 +17,7 @@ import {
   remapResultToAssessmentItems,
 } from "@/utils/qtiParsing";
 import { getItemMaxScore, getItemScore, getRubricScore } from "@/utils/scoring";
-import { updateItemComment } from "@/utils/resultUpdates";
+import { buildCriteriaUpdate, updateItemComment } from "@/utils/resultUpdates";
 import { useHighlightCodeBlocks } from "@/hooks/useHighlightCodeBlocks";
 import { useIncrementalList } from "@/hooks/useIncrementalList";
 
@@ -286,10 +286,7 @@ export default function WorkspacePage() {
   ) => {
     const item = items.find((i) => i.identifier === itemId);
     if (!item || item.rubric.length === 0) return;
-    const criteria = item.rubric.map((c) => ({
-      criterionText: c.text,
-      ...(c.index === criterionIndex ? { met: value } : {}),
-    }));
+    const criteria = buildCriteriaUpdate(item.rubric, criterionIndex, value);
     await fetch(`/api/workspaces/${id}/results`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
