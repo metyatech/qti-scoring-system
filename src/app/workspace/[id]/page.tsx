@@ -19,6 +19,7 @@ import {
 import { getItemMaxScore, getItemScore, getRubricScore } from "@/utils/scoring";
 import { updateItemComment } from "@/utils/resultUpdates";
 import { useHighlightCodeBlocks } from "@/hooks/useHighlightCodeBlocks";
+import { useIncrementalList } from "@/hooks/useIncrementalList";
 
 const fetchFileText = async (workspaceId: string, kind: string, name: string) => {
   const res = await fetch(`/api/workspaces/${workspaceId}/files?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}`);
@@ -50,6 +51,11 @@ export default function WorkspacePage() {
   const highlightDeps = useMemo(
     () => [viewMode, currentResultIndex, currentItemIndex, showItemPreview, items.length],
     [viewMode, currentResultIndex, currentItemIndex, showItemPreview, items.length]
+  );
+  const resultListKey = `${viewMode}:${currentItemIndex}`;
+  const { visibleItems: visibleResults, isComplete: isResultListComplete } = useIncrementalList(
+    results,
+    { batchSize: 10, delayMs: 16, resetKey: resultListKey }
   );
 
   useEffect(() => {
@@ -719,7 +725,15 @@ export default function WorkspacePage() {
             </div>
 
             <div className="space-y-4">
-              {results.map((result) => {
+              <div
+                className="text-xs text-gray-500"
+                data-testid="item-result-progress"
+                aria-live="polite"
+              >
+                受講者: {visibleResults.length} / {results.length}
+                {!isResultListComplete && " (読み込み中...)"}
+              </div>
+              {visibleResults.map((result) => {
                 const itemResult = result.itemResults[currentItem.identifier];
                 const responseText = formatResponse(currentItem, itemResult);
                 const comment = itemResult?.comment ?? "";
