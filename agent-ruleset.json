@@ -2,8 +2,7 @@
   "source": "github:metyatech/agent-rules",
   "domains": [
     "node",
-    "web",
-    "ghws"
+    "web"
   ],
   "output": "AGENTS.md"
 }
