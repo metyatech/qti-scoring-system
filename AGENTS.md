@@ -189,3 +189,15 @@ Source: C:/Users/Origin/.agentsmd/cache/metyatech/agent-rules/74947807374f378cfa
 - If Playwright tests fail to launch, clear playwright/.cache and retry.
 - When adding/changing links, add tests that verify the target resolves; if not feasible, document manual verification.
 - Use established icon libraries; do not handcraft custom icons or inline SVGs.
+
+Source: D:/ghws/agent-rules-local/ghws-workspace.md
+
+# GHWS workspace repository management
+
+- These rules apply only when working inside the `ghws` workspace repository (the exact path may vary).
+- All folders in this workspace (except `agent-rules-local`) are Git repositories connected to GitHub.
+- Some repositories are not owned by the user, but the user can commit and push to them.
+- If the target repository already exists under the current `ghws` workspace, edit it in place.
+- If the target repository is not present under the current `ghws` workspace, clone it from GitHub with `--recursive` and then work in the cloned folder.
+- When adding a new repository, create it under the `ghws` workspace first and then push it to GitHub.
+- Never clone repositories that are not managed by the user into the `ghws` workspace.
