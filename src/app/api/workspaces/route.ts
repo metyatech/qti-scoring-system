@@ -9,11 +9,10 @@ import {
   listWorkspaces,
 } from '@/lib/workspace';
 import { validateAssessmentConsistency } from '@/lib/qtiValidation';
+import { normalizeUploadPath } from '@/utils/uploadName';
 import { QtiWorkspace } from '@/types/qti';
 
 export const runtime = 'nodejs';
-
-const normalizeUploadPath = (value: string) => value.replace(/\\/g, '/').replace(/^\/+/, '');
 
 const detectSharedRootSegment = (paths: string[]): string | null => {
   if (paths.length === 0) return null;
