@@ -1,92 +1,81 @@
-# QTI 3.0 採点システム
+# QTI 3.0 Scoring System
 
-QTI 3.0 の assessment item / Results Reporting を読み込み、採点とコメントを行うWebアプリケーションです。
+Web application for scoring QTI 3.0 assessment items and Results Reporting data, with rubric-based scoring and comments.
 
-## 機能
+## Overview
+This repository contains the QTI 3.0 scoring system web application.
 
-### 現在実装済み
-- ✅ QTI 3.0 assessment-test / Results Reporting XML のアップロード
-- ✅ 受講者ごとの回答表示（前へ/次へナビゲーション）
-- ✅ 設問ごとの採点ビュー（設問単位で受講者の採点）
-- ✅ 設問ごとのクイックプレビュー（設問内容を即時表示）
-- ✅ 採点基準（rubric）に基づく採点
-- ✅ コメントの保存（Results Reporting の `COMMENT` outcome）
-- ✅ 結果レポート（HTML/CSV/Results XML）のZIPダウンロード
-- ✅ ワークスペース単位のエクスポート / インポート
+## Features
+- Upload QTI 3.0 assessment-test and Results Reporting XML.
+- Navigate responses by candidate with previous/next navigation.
+- Score per item with rubric criteria.
+- Quick preview per item.
+- Save comments in Results Reporting `COMMENT` outcomes.
+- Download reports (HTML/CSV/Results XML) as a ZIP.
+- Export and import workspaces.
 
-## 技術スタック
+## Tech Stack
+- Framework: Next.js 15 (App Router)
+- Language: TypeScript
+- Styling: Tailwind CSS
+- Linting: ESLint
 
-- **フレームワーク**: Next.js 15 (App Router)
-- **言語**: TypeScript
-- **スタイリング**: Tailwind CSS
-- **リンティング**: ESLint
+## Setup
+1. Install dependencies:
 
-## セットアップ
-
-1. 依存関係のインストール：
 ```bash
 npm install
 ```
 
-2. 開発サーバーの起動：
+2. Start the development server:
+
 ```bash
 npm run dev
 ```
 
-3. ブラウザで http://localhost:3000 にアクセス
+3. Open http://localhost:3000 in your browser.
 
-## 使用方法
+## Usage
+1. Select the output folder that contains `assessment-test.qti.xml` and one or more Results Reporting XML files.
+2. Create a workspace and score per candidate/per item, adding comments as needed.
+3. Export the workspace as a ZIP when needed and import it in another environment.
 
-1. assessment-test.qti.xml を含む出力フォルダと Results Reporting XML（複数）を選択
-2. ワークスペースを作成し、受講者ごと/設問ごとに採点・コメントを行う
-3. 必要に応じてワークスペースをZIPエクスポートし、別環境でインポートする
+## Workspace Export and Import
+- Export: use "Export this workspace" from the workspace screen to save a ZIP.
+- Import: choose "Import workspace ZIP", then run the import.
+- If a workspace with the same ID exists, the app prompts for overwrite.
 
-## ワークスペースのエクスポート / インポート
-
-- エクスポート: ワークスペース画面の「このワークスペースをエクスポート」からZIPを保存します。
-- インポート: 「エクスポートZIPをインポート」からZIPを選択し、「インポート実行」を押します。
-- 同じIDのワークスペースがある場合は、上書きするか確認ダイアログが表示されます。
-
-## 入力データ形式
+## Input Data Formats
 
 ### QTI assessment-test.qti.xml
-- `qti-assessment-test` がルートの QTI 3.0 assessment test
-- `qti-assessment-item-ref` の `identifier` / `href` で設問を参照
-- assessment-test と設問 XML を同じ出力フォルダに置き、フォルダごと選択して取り込む
+- Root element `qti-assessment-test`.
+- Items are referenced via `qti-assessment-item-ref` with `identifier` and `href`.
+- Place the assessment-test and item XML in the same output folder and select the folder.
 
 ### QTI item XML
-- `qti-assessment-item` がルートの QTI 3.0 item
-- 採点基準は `qti-rubric-block view="scorer"` に `[<points>] <criterion>` 形式で記述
-- item の `identifier` は assessment-test の `identifier` と一致している必要がある
-- `qti-img@src` で参照する画像ファイルも同じフォルダ構成で取り込む（相対パスで解決されます）
+- Root element `qti-assessment-item`.
+- Rubrics are defined in `qti-rubric-block view="scorer"` with `[<points>] <criterion>` per line.
+- Item `identifier` must match the assessment-test `identifier`.
+- Images referenced by `qti-img@src` should be included in the same folder structure (resolved as relative paths).
 
 ### QTI Results Reporting XML
-- `assessmentResult` がルートの QTI 3.0 Results Reporting
-- `itemResult@sequenceIndex` が必須で、assessment-test の設問数と一致している必要がある
+- Root element `assessmentResult`.
+- `itemResult@sequenceIndex` is required and must match the assessment-test item count.
 
-## 外部ツール連携
+## External Tools
+- Results XML updates use `apply-to-qti-results`.
+- Report generation uses `qti-reporter`.
+- `apply-to-qti-results` is installed via GitHub dependency and referenced from `node_modules`.
 
-Results XML の更新には `apply-to-qti-results` を使用します。
-結果レポートの生成には `qti-reporter` を使用します。
+## Development Commands
+- Build: `npm run build`
+- Test: `npm run test`
+- Lint: `npm run lint`
+- Dev server: `npm run dev`
+- E2E: run `npx playwright install chromium` once, then `npm run test:e2e`
 
-`apply-to-qti-results` は GitHub 依存としてインストールされ、`node_modules` 経由で参照します。
+## Requirements and Configuration
+- No required environment variables are documented.
 
-## 開発
-
-```bash
-# 開発サーバー起動
-npm run dev
-
-# ビルド
-npm run build
-
-# リント実行
-npm run lint
-
-# テスト実行
-npm run test
-
-# E2E テスト実行（初回はブラウザのインストールが必要）
-npx playwright install chromium
-npm run test:e2e
-```
+## Release and Deploy
+Not documented for this repository.
