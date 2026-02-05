@@ -78,4 +78,21 @@ npm run dev
 - No required environment variables are documented.
 
 ## Release and Deploy
-Not documented for this repository.
+
+### Build
+To build the application for production:
+
+```bash
+npm run build
+```
+
+### Deploy
+The application can be deployed to any platform that supports Next.js, such as Vercel, Netlify, or a custom server.
+
+For a custom server:
+1. Build the application.
+2. Start the production server:
+
+```bash
+npm run start
+```
