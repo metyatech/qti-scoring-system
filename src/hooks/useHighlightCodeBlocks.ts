@@ -1,43 +1,43 @@
-import { useEffect, useRef } from 'react';
-import { scheduleHighlightCodeBlocks } from '@/utils/highlight';
+import { useEffect, useRef } from 'react'
+import { scheduleHighlightCodeBlocks } from '@/utils/highlight'
 
-type UseHighlightDeps = ReadonlyArray<unknown>;
+type UseHighlightDeps = ReadonlyArray<unknown>
 
 export const useHighlightCodeBlocks = (
   rootRef: React.RefObject<ParentNode | null>,
   deps: UseHighlightDeps,
-  enabled = true
+  enabled = true,
 ) => {
-  const rafRef = useRef<number | null>(null);
-  const scheduleRef = useRef<ReturnType<typeof scheduleHighlightCodeBlocks> | null>(null);
+  const rafRef = useRef<number | null>(null)
+  const scheduleRef = useRef<ReturnType<typeof scheduleHighlightCodeBlocks> | null>(null)
 
   useEffect(() => {
-    if (!enabled) return;
-    const root = rootRef.current;
-    if (!root) return;
+    if (!enabled) return
+    const root = rootRef.current
+    if (!root) return
 
     if (rafRef.current !== null) {
-      window.cancelAnimationFrame(rafRef.current);
+      window.cancelAnimationFrame(rafRef.current)
     }
     if (scheduleRef.current) {
-      scheduleRef.current.cancel();
-      scheduleRef.current = null;
+      scheduleRef.current.cancel()
+      scheduleRef.current = null
     }
 
     rafRef.current = window.requestAnimationFrame(() => {
-      rafRef.current = null;
-      scheduleRef.current = scheduleHighlightCodeBlocks(root);
-    });
+      rafRef.current = null
+      scheduleRef.current = scheduleHighlightCodeBlocks(root)
+    })
 
     return () => {
       if (rafRef.current !== null) {
-        window.cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
+        window.cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
       }
       if (scheduleRef.current) {
-        scheduleRef.current.cancel();
-        scheduleRef.current = null;
+        scheduleRef.current.cancel()
+        scheduleRef.current = null
       }
-    };
-  }, [enabled, rootRef, deps]);
-};
+    }
+  }, [enabled, rootRef, deps])
+}
