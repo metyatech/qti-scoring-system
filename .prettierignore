@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+build
+next-env.d.ts
+AGENTS.md
+package-lock.json
+package.json
+public
+.vscode
+.github
+e2e/fixtures

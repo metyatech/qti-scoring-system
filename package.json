@@ -3,6 +3,15 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
+  "description": "Web application for scoring QTI 3.0 assessment items and Results Reporting data.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/metyatech/qti-scoring-system.git"
+  },
+  "bugs": {
+    "url": "https://github.com/metyatech/qti-scoring-system/issues"
+  },
+  "homepage": "https://github.com/metyatech/qti-scoring-system#readme",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -33,7 +42,10 @@
     "@types/react-dom": "^19",
     "eslint": "^9.39.2",
     "eslint-config-next": "16.1.6",
+    "eslint-config-prettier": "^10.1.8",
     "jsdom": "^27.4.0",
+    "prettier": "^3.8.1",
+    "prettier-plugin-tailwindcss": "^0.7.2",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.18"

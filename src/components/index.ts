@@ -1,2 +1,2 @@
-export { default as WorkspaceSelector } from './WorkspaceSelector';
-export { default as QtiUpload } from './QtiUpload';
+export { default as WorkspaceSelector } from './WorkspaceSelector'
+export { default as QtiUpload } from './QtiUpload'
