@@ -1,6 +1,6 @@
-import fs from 'fs';
-import path from 'path';
-import JSZip from 'jszip';
+import fs from "fs";
+import path from "path";
+import JSZip from "jszip";
 
 type ReportZipParams = {
   reportDir: string;
@@ -23,14 +23,16 @@ const addDirToZip = (zip: JSZip, sourceDir: string, zipPrefix: string) => {
   }
 };
 
-export const createReportZip = async (params: ReportZipParams): Promise<Buffer> => {
+export const createReportZip = async (
+  params: ReportZipParams
+): Promise<Buffer> => {
   const zip = new JSZip();
-  addDirToZip(zip, params.reportDir, 'report');
+  addDirToZip(zip, params.reportDir, "report");
 
   for (const result of params.results) {
     const content = fs.readFileSync(result.path);
-    zip.file(path.posix.join('results', result.name), content);
+    zip.file(path.posix.join("results", result.name), content);
   }
 
-  return await zip.generateAsync({ type: 'nodebuffer' });
+  return await zip.generateAsync({ type: "nodebuffer" });
 };

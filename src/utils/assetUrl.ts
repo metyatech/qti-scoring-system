@@ -1,4 +1,4 @@
-import { rewriteHtmlImageSources as rewriteHtmlImageSourcesCore } from 'qti-html-renderer';
+import { rewriteHtmlImageSources as rewriteHtmlImageSourcesCore } from "qti-html-renderer";
 
 const buildWorkspaceFileUrl = (workspaceId: string, name: string) =>
   `/api/workspaces/${workspaceId}/files?kind=assessment&name=${encodeURIComponent(name)}`;

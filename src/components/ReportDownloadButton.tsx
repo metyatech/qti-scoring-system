@@ -33,7 +33,9 @@ export default function ReportDownloadButton({
         a.click();
         URL.revokeObjectURL(url);
       } catch (err) {
-        onError?.(err instanceof Error ? err.message : "レポートの生成に失敗しました");
+        onError?.(
+          err instanceof Error ? err.message : "レポートの生成に失敗しました"
+        );
       } finally {
         setDownloading(false);
       }
@@ -43,7 +45,7 @@ export default function ReportDownloadButton({
   return (
     <button
       onClick={handleDownload}
-      className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      className="rounded bg-emerald-600 px-4 py-2 text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={downloading}
     >
       {downloading ? "レポート生成中..." : "結果レポートをダウンロード"}
