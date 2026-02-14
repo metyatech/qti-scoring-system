@@ -10,10 +10,13 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint:contrast": "playwright test e2e/contrast.spec.ts",
+    "verify": "npm run lint && npm run test && npm run test:e2e && npm run lint:contrast && npm run build"
   },
   "dependencies": {
     "apply-to-qti-results": "github:metyatech/apply-to-qti-results#main",
+    "fast-xml-parser": "^4.5.3",
     "highlight.js": "^11.11.1",
     "jszip": "^3.10.1",
     "next": "^16.1.6",
@@ -25,6 +28,7 @@
     "tsx": "^4.21.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
     "@eslint/eslintrc": "^3.3.3",
     "@playwright/test": "^1.58.0",
     "@tailwindcss/postcss": "^4",
