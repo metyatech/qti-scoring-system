@@ -1,32 +1,34 @@
-import React, { act } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createRoot, Root } from 'react-dom/client';
-import { useHighlightCodeBlocks } from '@/hooks/useHighlightCodeBlocks';
-import * as highlight from '@/utils/highlight';
+import React, { act } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createRoot, Root } from "react-dom/client";
+import { useHighlightCodeBlocks } from "@/hooks/useHighlightCodeBlocks";
+import * as highlight from "@/utils/highlight";
 
-describe('useHighlightCodeBlocks', () => {
+describe("useHighlightCodeBlocks", () => {
   let container: HTMLDivElement;
   let root: Root;
   let rafCallbacks: Map<number, FrameRequestCallback>;
   let rafId = 0;
 
   beforeEach(() => {
-    (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-    container = document.createElement('div');
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
+    container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
 
     rafCallbacks = new Map();
     rafId = 0;
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
       rafId += 1;
       rafCallbacks.set(rafId, cb);
       return rafId;
     });
-    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => {
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
       rafCallbacks.delete(id);
     });
-    vi.spyOn(highlight, 'scheduleHighlightCodeBlocks').mockReturnValue({
+    vi.spyOn(highlight, "scheduleHighlightCodeBlocks").mockReturnValue({
       cancel: vi.fn(),
     });
   });
@@ -37,10 +39,18 @@ describe('useHighlightCodeBlocks', () => {
     });
     container.remove();
     vi.restoreAllMocks();
-    delete (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+    delete (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  const TestComponent = ({ tick, enabled = true }: { tick: number; enabled?: boolean }) => {
+  const TestComponent = ({
+    tick,
+    enabled = true,
+  }: {
+    tick: number;
+    enabled?: boolean;
+  }) => {
     const ref = React.useRef<HTMLDivElement>(null);
     const deps = React.useMemo(() => [tick], [tick]);
     useHighlightCodeBlocks(ref, deps, enabled);
@@ -53,7 +63,7 @@ describe('useHighlightCodeBlocks', () => {
     );
   };
 
-  it('batches highlight calls per animation frame', () => {
+  it("batches highlight calls per animation frame", () => {
     act(() => {
       root.render(<TestComponent tick={0} />);
     });
@@ -73,7 +83,7 @@ describe('useHighlightCodeBlocks', () => {
     expect(highlight.scheduleHighlightCodeBlocks).toHaveBeenCalledTimes(1);
   });
 
-  it('does not schedule when disabled', () => {
+  it("does not schedule when disabled", () => {
     act(() => {
       root.render(<TestComponent tick={0} enabled={false} />);
     });
@@ -82,9 +92,13 @@ describe('useHighlightCodeBlocks', () => {
     expect(highlight.scheduleHighlightCodeBlocks).not.toHaveBeenCalled();
   });
 
-  it('cancels scheduled work on unmount', () => {
+  it("cancels scheduled work on unmount", () => {
     const cancel = vi.fn();
-    (highlight.scheduleHighlightCodeBlocks as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+    (
+      highlight.scheduleHighlightCodeBlocks as unknown as ReturnType<
+        typeof vi.fn
+      >
+    ).mockReturnValueOnce({
       cancel,
     });
 

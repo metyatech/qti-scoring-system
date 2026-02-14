@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type IncrementalOptions = {
   batchSize?: number;
@@ -12,7 +12,7 @@ type IncrementalState<T> = {
   isComplete: boolean;
 };
 
-export const useIncrementalList = <T,>(
+export const useIncrementalList = <T>(
   items: T[],
   options: IncrementalOptions = {}
 ): IncrementalState<T> => {
@@ -23,11 +23,14 @@ export const useIncrementalList = <T,>(
 
   const prevItemsRef = useRef(items);
   const prevResetKeyRef = useRef(resetKey);
-  const [visibleCount, setVisibleCount] = useState(() => Math.min(initialBatchSize, items.length));
+  const [visibleCount, setVisibleCount] = useState(() =>
+    Math.min(initialBatchSize, items.length)
+  );
 
   useEffect(() => {
     const itemsChanged = prevItemsRef.current !== items;
-    const resetKeyChanged = resetKey !== undefined && prevResetKeyRef.current !== resetKey;
+    const resetKeyChanged =
+      resetKey !== undefined && prevResetKeyRef.current !== resetKey;
     prevItemsRef.current = items;
     prevResetKeyRef.current = resetKey;
 
@@ -50,7 +53,10 @@ export const useIncrementalList = <T,>(
     return () => window.clearTimeout(timer);
   }, [batchSize, delayMs, items.length, visibleCount]);
 
-  const visibleItems = useMemo(() => items.slice(0, visibleCount), [items, visibleCount]);
+  const visibleItems = useMemo(
+    () => items.slice(0, visibleCount),
+    [items, visibleCount]
+  );
   const isComplete = visibleCount >= items.length;
 
   return { visibleItems, isComplete };

@@ -1,4 +1,4 @@
-import type { QtiResult } from '@/utils/qtiParsing';
+import type { QtiResult } from "@/utils/qtiParsing";
 
 export const updateItemComment = (
   results: QtiResult[],
@@ -28,4 +28,6 @@ export const buildCriteriaUpdate = (
   criterionIndex: number,
   value: boolean
 ): Array<{ met?: boolean }> =>
-  rubric.map((criterion) => (criterion.index === criterionIndex ? { met: value } : {}));
+  rubric.map((criterion) =>
+    criterion.index === criterionIndex ? { met: value } : {}
+  );

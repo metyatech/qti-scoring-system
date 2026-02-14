@@ -1,15 +1,20 @@
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import fs from "fs";
+import os from "os";
+import path from "path";
+import { execFile } from "child_process";
+import { promisify } from "util";
 
 const execFileAsync = promisify(execFile);
 
 const findPackageRoot = (packageName: string, startDir: string) => {
   let current = startDir;
   while (true) {
-    const candidate = path.join(current, 'node_modules', packageName, 'package.json');
+    const candidate = path.join(
+      current,
+      "node_modules",
+      packageName,
+      "package.json"
+    );
     if (fs.existsSync(candidate)) {
       return path.dirname(candidate);
     }
@@ -19,12 +24,14 @@ const findPackageRoot = (packageName: string, startDir: string) => {
     }
     current = parent;
   }
-  throw new Error(`package が見つかりません: ${packageName} (start: ${startDir})`);
+  throw new Error(
+    `package が見つかりません: ${packageName} (start: ${startDir})`
+  );
 };
 
 const resolveReporterCliPath = () => {
-  const packageRoot = findPackageRoot('qti-reporter', process.cwd());
-  const cliPath = path.join(packageRoot, 'dist', 'cli.js');
+  const packageRoot = findPackageRoot("qti-reporter", process.cwd());
+  const cliPath = path.join(packageRoot, "dist", "cli.js");
   if (!fs.existsSync(cliPath)) {
     throw new Error(`qti-reporter の CLI が見つかりません: ${cliPath}`);
   }
@@ -37,19 +44,24 @@ export const generateCsvReport = async (params: {
 }) => {
   const { assessmentTestPath, assessmentResultPaths } = params;
   if (assessmentResultPaths.length === 0) {
-    throw new Error('assessmentResult が指定されていません');
+    throw new Error("assessmentResult が指定されていません");
   }
 
   const cliPath = resolveReporterCliPath();
-  const tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'qti-report-'));
+  const tempRoot = await fs.promises.mkdtemp(
+    path.join(os.tmpdir(), "qti-report-")
+  );
   try {
     const sortedResults = [...assessmentResultPaths].sort();
     const args = [
       cliPath,
-      '--assessment-test',
+      "--assessment-test",
       assessmentTestPath,
-      ...sortedResults.flatMap((resultPath) => ['--assessment-result', resultPath]),
-      '--out-dir',
+      ...sortedResults.flatMap((resultPath) => [
+        "--assessment-result",
+        resultPath,
+      ]),
+      "--out-dir",
       tempRoot,
     ];
     await execFileAsync(process.execPath, args, {
@@ -57,11 +69,11 @@ export const generateCsvReport = async (params: {
       maxBuffer: 10 * 1024 * 1024,
     });
 
-    const csvPath = path.join(tempRoot, 'report.csv');
+    const csvPath = path.join(tempRoot, "report.csv");
     if (!fs.existsSync(csvPath)) {
-      throw new Error('CSV の生成に失敗しました');
+      throw new Error("CSV の生成に失敗しました");
     }
-  return await fs.promises.readFile(csvPath, 'utf-8');
+    return await fs.promises.readFile(csvPath, "utf-8");
   } finally {
     await fs.promises.rm(tempRoot, { recursive: true, force: true });
   }
@@ -73,18 +85,23 @@ export const generateReportOutput = async (params: {
 }) => {
   const { assessmentTestPath, assessmentResultPaths } = params;
   if (assessmentResultPaths.length === 0) {
-    throw new Error('assessmentResult が指定されていません');
+    throw new Error("assessmentResult が指定されていません");
   }
 
   const cliPath = resolveReporterCliPath();
-  const outputDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'qti-report-'));
+  const outputDir = await fs.promises.mkdtemp(
+    path.join(os.tmpdir(), "qti-report-")
+  );
   const sortedResults = [...assessmentResultPaths].sort();
   const args = [
     cliPath,
-    '--assessment-test',
+    "--assessment-test",
     assessmentTestPath,
-    ...sortedResults.flatMap((resultPath) => ['--assessment-result', resultPath]),
-    '--out-dir',
+    ...sortedResults.flatMap((resultPath) => [
+      "--assessment-result",
+      resultPath,
+    ]),
+    "--out-dir",
     outputDir,
   ];
   await execFileAsync(process.execPath, args, {

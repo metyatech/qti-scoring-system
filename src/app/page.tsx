@@ -1,11 +1,14 @@
-'use client';
+"use client";
 
-import dynamic from 'next/dynamic';
-import { useRouter } from 'next/navigation';
+import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 
-const WorkspaceSelector = dynamic(() => import('@/components/WorkspaceSelector'), {
-  ssr: false,
-});
+const WorkspaceSelector = dynamic(
+  () => import("@/components/WorkspaceSelector"),
+  {
+    ssr: false,
+  }
+);
 
 export default function Home() {
   const router = useRouter();
@@ -15,7 +18,7 @@ export default function Home() {
   };
 
   const handleCreateNew = () => {
-    router.push('/workspace/new');
+    router.push("/workspace/new");
   };
 
   return (

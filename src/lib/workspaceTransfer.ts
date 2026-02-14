@@ -1,17 +1,17 @@
-import fs from 'fs';
-import path from 'path';
-import JSZip from 'jszip';
-import { getWorkspacesRoot } from '@/lib/workspace';
+import fs from "fs";
+import path from "path";
+import JSZip from "jszip";
+import { getWorkspacesRoot } from "@/lib/workspace";
 
-const EXPORT_ROOT = 'workspaces';
-const EXPORT_MANIFEST = 'workspace-export.json';
+const EXPORT_ROOT = "workspaces";
+const EXPORT_MANIFEST = "workspace-export.json";
 const MANIFEST_VERSION = 1;
 
 export class WorkspaceImportError extends Error {
-  code?: 'invalid' | 'conflict';
-  constructor(message: string, code: 'invalid' | 'conflict' = 'invalid') {
+  code?: "invalid" | "conflict";
+  constructor(message: string, code: "invalid" | "conflict" = "invalid") {
     super(message);
-    this.name = 'WorkspaceImportError';
+    this.name = "WorkspaceImportError";
     this.code = code;
   }
 }
@@ -39,14 +39,14 @@ type ImportResult = {
   workspaceIds: string[];
 };
 
-const toSafePosixPath = (value: string) => value.replace(/\\/g, '/');
+const toSafePosixPath = (value: string) => value.replace(/\\/g, "/");
 
 const normalizeZipPath = (value: string) => {
   const normalized = path.posix.normalize(value);
-  if (!normalized || normalized === '.') {
-    throw new WorkspaceImportError('アーカイブ内のパスが空です');
+  if (!normalized || normalized === ".") {
+    throw new WorkspaceImportError("アーカイブ内のパスが空です");
   }
-  if (normalized.startsWith('..') || normalized.includes('/..')) {
+  if (normalized.startsWith("..") || normalized.includes("/..")) {
     throw new WorkspaceImportError(`アーカイブ内のパスが不正です: ${value}`);
   }
   return normalized;
@@ -65,7 +65,7 @@ const ensureDir = async (dirPath: string) => {
 const addDirToZip = (zip: JSZip, sourceDir: string, zipPrefix: string) => {
   const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
   for (const entry of entries) {
-    if (entry.name.endsWith('.tmp') || entry.name.endsWith('.bak')) {
+    if (entry.name.endsWith(".tmp") || entry.name.endsWith(".bak")) {
       continue;
     }
     const entryPath = path.join(sourceDir, entry.name);
@@ -85,11 +85,15 @@ const buildManifest = async (
   workspaceId: string,
   workspacesRoot: string
 ): Promise<ExportManifest> => {
-  const metaPath = path.join(workspacesRoot, workspaceId, 'workspace.json');
+  const metaPath = path.join(workspacesRoot, workspaceId, "workspace.json");
   const info: ExportWorkspaceInfo = { id: workspaceId };
   try {
-    const content = await fs.promises.readFile(metaPath, 'utf-8');
-    const parsed = JSON.parse(content) as { id?: string; name?: string; updatedAt?: string };
+    const content = await fs.promises.readFile(metaPath, "utf-8");
+    const parsed = JSON.parse(content) as {
+      id?: string;
+      name?: string;
+      updatedAt?: string;
+    };
     info.id = parsed.id ?? workspaceId;
     info.name = parsed.name;
     info.updatedAt = parsed.updatedAt;
@@ -112,13 +116,15 @@ export const createWorkspaceExportZip = async (
   validateWorkspaceId(workspaceId);
   const workspaceDir = path.join(workspacesRoot, workspaceId);
   if (!fs.existsSync(workspaceDir)) {
-    throw new WorkspaceImportError(`ワークスペースが見つかりません: ${workspaceId}`);
+    throw new WorkspaceImportError(
+      `ワークスペースが見つかりません: ${workspaceId}`
+    );
   }
   const zip = new JSZip();
   addDirToZip(zip, workspaceDir, path.posix.join(EXPORT_ROOT, workspaceId));
   const manifest = await buildManifest(workspaceId, workspacesRoot);
   zip.file(EXPORT_MANIFEST, JSON.stringify(manifest, null, 2));
-  return await zip.generateAsync({ type: 'nodebuffer' });
+  return await zip.generateAsync({ type: "nodebuffer" });
 };
 
 export const importWorkspaceArchive = async (
@@ -131,7 +137,10 @@ export const importWorkspaceArchive = async (
   const zip = await JSZip.loadAsync(buffer);
   const entries = Object.values(zip.files);
 
-  const workspaces = new Map<string, Array<{ relativePath: string; entry: JSZip.JSZipObject }>>();
+  const workspaces = new Map<
+    string,
+    Array<{ relativePath: string; entry: JSZip.JSZipObject }>
+  >();
   const workspaceMeta = new Map<string, { id: string }>();
   let manifest: ExportManifest | null = null;
 
@@ -139,16 +148,20 @@ export const importWorkspaceArchive = async (
     if (entry.dir) continue;
     const name = toSafePosixPath(entry.name);
     if (name === EXPORT_MANIFEST) {
-      const content = await entry.async('string');
+      const content = await entry.async("string");
       try {
         const parsed = JSON.parse(content) as ExportManifest;
         if (parsed.version !== MANIFEST_VERSION) {
-          throw new WorkspaceImportError(`対応していないエクスポート形式です: v${parsed.version}`);
+          throw new WorkspaceImportError(
+            `対応していないエクスポート形式です: v${parsed.version}`
+          );
         }
         manifest = parsed;
       } catch (error) {
         if (error instanceof WorkspaceImportError) throw error;
-        throw new WorkspaceImportError('エクスポート情報の読み込みに失敗しました');
+        throw new WorkspaceImportError(
+          "エクスポート情報の読み込みに失敗しました"
+        );
       }
       continue;
     }
@@ -159,42 +172,50 @@ export const importWorkspaceArchive = async (
 
     const trimmed = name.slice(EXPORT_ROOT.length + 1);
     const normalized = normalizeZipPath(trimmed);
-    const [workspaceId, ...restParts] = normalized.split('/');
+    const [workspaceId, ...restParts] = normalized.split("/");
     if (!workspaceId || restParts.length === 0) {
       throw new WorkspaceImportError(`ワークスペースデータが不正です: ${name}`);
     }
     validateWorkspaceId(workspaceId);
-    const relativePath = normalizeZipPath(restParts.join('/'));
+    const relativePath = normalizeZipPath(restParts.join("/"));
 
     if (!workspaces.has(workspaceId)) {
       workspaces.set(workspaceId, []);
     }
     workspaces.get(workspaceId)!.push({ relativePath, entry });
 
-    if (relativePath === 'workspace.json') {
-      const metaContent = await entry.async('string');
+    if (relativePath === "workspace.json") {
+      const metaContent = await entry.async("string");
       try {
         const parsed = JSON.parse(metaContent) as { id?: string };
         if (!parsed.id || parsed.id !== workspaceId) {
-          throw new WorkspaceImportError('workspace.json のIDが一致しません');
+          throw new WorkspaceImportError("workspace.json のIDが一致しません");
         }
         workspaceMeta.set(workspaceId, { id: parsed.id });
       } catch (error) {
         if (error instanceof WorkspaceImportError) throw error;
-        throw new WorkspaceImportError(`workspace.json の解析に失敗しました: ${workspaceId}`);
+        throw new WorkspaceImportError(
+          `workspace.json の解析に失敗しました: ${workspaceId}`
+        );
       }
     }
   }
 
   if (workspaces.size === 0) {
-    throw new WorkspaceImportError('インポート対象のワークスペースが見つかりません');
+    throw new WorkspaceImportError(
+      "インポート対象のワークスペースが見つかりません"
+    );
   }
   if (workspaces.size > 1) {
-    throw new WorkspaceImportError('複数ワークスペースのインポートには対応していません');
+    throw new WorkspaceImportError(
+      "複数ワークスペースのインポートには対応していません"
+    );
   }
   for (const workspaceId of workspaces.keys()) {
     if (!workspaceMeta.has(workspaceId)) {
-      throw new WorkspaceImportError(`workspace.json が見つかりません: ${workspaceId}`);
+      throw new WorkspaceImportError(
+        `workspace.json が見つかりません: ${workspaceId}`
+      );
     }
   }
 
@@ -204,8 +225,8 @@ export const importWorkspaceArchive = async (
     );
     if (conflicts.length > 0) {
       throw new WorkspaceImportError(
-        `既存ワークスペースと競合しています: ${conflicts.join(', ')}`,
-        'conflict'
+        `既存ワークスペースと競合しています: ${conflicts.join(", ")}`,
+        "conflict"
       );
     }
   }
@@ -218,9 +239,12 @@ export const importWorkspaceArchive = async (
       const workspaceTmp = path.join(tmpRoot, workspaceId);
       await ensureDir(workspaceTmp);
       for (const file of files) {
-        const targetPath = path.join(workspaceTmp, ...file.relativePath.split('/'));
+        const targetPath = path.join(
+          workspaceTmp,
+          ...file.relativePath.split("/")
+        );
         await ensureDir(path.dirname(targetPath));
-        const content = await file.entry.async('nodebuffer');
+        const content = await file.entry.async("nodebuffer");
         await fs.promises.writeFile(targetPath, content);
       }
     }

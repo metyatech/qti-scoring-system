@@ -1,4 +1,4 @@
-export type QtiItemType = 'descriptive' | 'choice' | 'cloze';
+export type QtiItemType = "descriptive" | "choice" | "cloze";
 
 export interface QtiChoice {
   identifier: string;
@@ -37,13 +37,13 @@ export interface QtiResult {
   itemResults: Record<string, QtiItemResult>;
 }
 
-import { renderQtiItemForScoring } from 'qti-html-renderer';
+import { renderQtiItemForScoring } from "qti-html-renderer";
 import {
   parseAssessmentTestXml as parseAssessmentTestXmlCore,
   parseResultsXmlRaw,
   resolveAssessmentHref as resolveAssessmentHrefCore,
   type AssessmentItemRef,
-} from 'qti-xml-core';
+} from "qti-xml-core";
 
 export interface RemapResult {
   mappedItemResults: Record<string, QtiItemResult>;
@@ -54,8 +54,12 @@ export interface RemapResult {
 export const parseQtiItemXml = (xml: string): QtiItem => {
   const parsed = renderQtiItemForScoring(xml);
   const hasChoice = parsed.choices.length > 0;
-  const hasCloze = parsed.promptHtml.includes('qti-blank-input');
-  const type: QtiItemType = hasChoice ? 'choice' : hasCloze ? 'cloze' : 'descriptive';
+  const hasCloze = parsed.promptHtml.includes("qti-blank-input");
+  const type: QtiItemType = hasChoice
+    ? "choice"
+    : hasCloze
+      ? "cloze"
+      : "descriptive";
 
   return {
     identifier: parsed.identifier,
@@ -68,11 +72,14 @@ export const parseQtiItemXml = (xml: string): QtiItem => {
   };
 };
 
-export const parseQtiResultsXml = (xml: string, fileName: string): QtiResult => {
+export const parseQtiResultsXml = (
+  xml: string,
+  fileName: string
+): QtiResult => {
   const raw = parseResultsXmlRaw(xml);
   const sourcedId = raw.sourcedId;
   let candidateName = sourcedId || fileName;
-  const candidateFromSession = raw.sessionIdentifiers['candidateName'];
+  const candidateFromSession = raw.sessionIdentifiers["candidateName"];
   if (candidateFromSession) {
     candidateName = candidateFromSession;
   }
@@ -80,24 +87,26 @@ export const parseQtiResultsXml = (xml: string, fileName: string): QtiResult => 
   const itemResults: Record<string, QtiItemResult> = {};
   for (const itemResult of raw.itemResults) {
     const resultIdentifier = itemResult.identifier;
-    const responseValues = itemResult.responseVariables['RESPONSE'] ?? [];
+    const responseValues = itemResult.responseVariables["RESPONSE"] ?? [];
     let response: string | string[] | null = null;
     if (responseValues.length === 1) response = responseValues[0];
     else if (responseValues.length > 1) response = responseValues;
 
-    const scoreValues = itemResult.outcomeVariables['SCORE'] ?? [];
+    const scoreValues = itemResult.outcomeVariables["SCORE"] ?? [];
     const scoreValue = scoreValues[0];
-    const commentValues = itemResult.outcomeVariables['COMMENT'] ?? [];
+    const commentValues = itemResult.outcomeVariables["COMMENT"] ?? [];
     const commentValue = commentValues[0];
 
     const rubricOutcomes: Record<number, boolean> = {};
-    for (const [identifier, values] of Object.entries(itemResult.outcomeVariables)) {
+    for (const [identifier, values] of Object.entries(
+      itemResult.outcomeVariables
+    )) {
       const match = identifier.match(/^RUBRIC_(\d+)_MET$/);
       if (!match) continue;
       const idx = Number(match[1]);
       const value = values[0];
-      if (value === 'true') rubricOutcomes[idx] = true;
-      if (value === 'false') rubricOutcomes[idx] = false;
+      if (value === "true") rubricOutcomes[idx] = true;
+      if (value === "false") rubricOutcomes[idx] = false;
     }
 
     itemResults[resultIdentifier] = {
@@ -122,15 +131,20 @@ export const parseAssessmentTestXml = (xml: string): AssessmentItemRef[] => {
   try {
     return parseAssessmentTestXmlCore(xml);
   } catch (error) {
-    throw new Error((error as Error).message || 'assessmentTest XML の解析に失敗しました');
+    throw new Error(
+      (error as Error).message || "assessmentTest XML の解析に失敗しました"
+    );
   }
 };
 
-export const resolveAssessmentHref = (assessmentTestPath: string, href: string): string => {
+export const resolveAssessmentHref = (
+  assessmentTestPath: string,
+  href: string
+): string => {
   try {
     return resolveAssessmentHrefCore(assessmentTestPath, href);
   } catch (error) {
-    throw new Error((error as Error).message || '不正な相対パスです');
+    throw new Error((error as Error).message || "不正な相対パスです");
   }
 };
 
@@ -142,7 +156,9 @@ export const remapResultToAssessmentItems = (
   const missingResultIdentifiers: string[] = [];
   const duplicateItemIdentifiers: string[] = [];
   const itemIdentifiers = new Map<string, number>();
-  itemRefs.forEach((ref, index) => itemIdentifiers.set(ref.identifier, index + 1));
+  itemRefs.forEach((ref, index) =>
+    itemIdentifiers.set(ref.identifier, index + 1)
+  );
   const itemCount = itemRefs.length;
 
   const mapByIndex = (index: number | undefined) => {
@@ -175,5 +191,9 @@ export const remapResultToAssessmentItems = (
     mappedItemResults[itemIdentifier] = itemResult;
   }
 
-  return { mappedItemResults, missingResultIdentifiers, duplicateItemIdentifiers };
+  return {
+    mappedItemResults,
+    missingResultIdentifiers,
+    duplicateItemIdentifiers,
+  };
 };

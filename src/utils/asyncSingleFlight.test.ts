@@ -1,16 +1,19 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from "vitest";
 
-import { createSingleFlight } from './asyncSingleFlight';
+import { createSingleFlight } from "./asyncSingleFlight";
 
-describe('createSingleFlight', () => {
-  it('runs only one concurrent invocation', async () => {
+describe("createSingleFlight", () => {
+  it("runs only one concurrent invocation", async () => {
     const singleFlight = createSingleFlight<number>();
     const deferred: { resolve: (value: number) => void } = {
       resolve: () => undefined,
     };
-    const fn = vi.fn(() => new Promise<number>((resolve) => {
-      deferred.resolve = resolve;
-    }));
+    const fn = vi.fn(
+      () =>
+        new Promise<number>((resolve) => {
+          deferred.resolve = resolve;
+        })
+    );
 
     const first = singleFlight(fn);
     const second = singleFlight(fn);
@@ -26,15 +29,15 @@ describe('createSingleFlight', () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it('releases the lock on failure and allows retry', async () => {
+  it("releases the lock on failure and allows retry", async () => {
     const singleFlight = createSingleFlight<number>();
-    const error = new Error('boom');
+    const error = new Error("boom");
 
     await expect(
       singleFlight(async () => {
         throw error;
       })
-    ).rejects.toThrow('boom');
+    ).rejects.toThrow("boom");
 
     const result = await singleFlight(async () => 9);
     expect(result).toBe(9);
