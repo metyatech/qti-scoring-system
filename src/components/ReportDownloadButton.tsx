@@ -33,7 +33,9 @@ export default function ReportDownloadButton({
         a.click();
         URL.revokeObjectURL(url);
       } catch (err) {
-        onError?.(err instanceof Error ? err.message : "レポートの生成に失敗しました");
+        onError?.(
+          err instanceof Error ? err.message : "レポートの生成に失敗しました"
+        );
       } finally {
         setDownloading(false);
       }

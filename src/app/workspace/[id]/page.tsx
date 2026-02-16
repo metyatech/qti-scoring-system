@@ -21,8 +21,14 @@ import { buildCriteriaUpdate, updateItemComment } from "@/utils/resultUpdates";
 import { useHighlightCodeBlocks } from "@/hooks/useHighlightCodeBlocks";
 import { useIncrementalList } from "@/hooks/useIncrementalList";
 
-const fetchFileText = async (workspaceId: string, kind: string, name: string) => {
-  const res = await fetch(`/api/workspaces/${workspaceId}/files?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}`);
+const fetchFileText = async (
+  workspaceId: string,
+  kind: string,
+  name: string
+) => {
+  const res = await fetch(
+    `/api/workspaces/${workspaceId}/files?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}`
+  );
   if (!res.ok) {
     throw new Error(`ファイル取得に失敗: ${name}`);
   }
@@ -45,18 +51,34 @@ export default function WorkspacePage() {
   const [loopMessage, setLoopMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showItemPreview, setShowItemPreview] = useState(false);
-  const [saveStatusByKey, setSaveStatusByKey] = useState<Record<string, "saving" | "saved">>({});
+  const [saveStatusByKey, setSaveStatusByKey] = useState<
+    Record<string, "saving" | "saved">
+  >({});
   const saveStatusTimersRef = useRef<Record<string, number>>({});
 
   const highlightDeps = useMemo(
-    () => [viewMode, currentResultIndex, currentItemIndex, showItemPreview, items.length],
-    [viewMode, currentResultIndex, currentItemIndex, showItemPreview, items.length]
+    () => [
+      viewMode,
+      currentResultIndex,
+      currentItemIndex,
+      showItemPreview,
+      items.length,
+    ],
+    [
+      viewMode,
+      currentResultIndex,
+      currentItemIndex,
+      showItemPreview,
+      items.length,
+    ]
   );
   const resultListKey = `${viewMode}:${currentItemIndex}`;
-  const { visibleItems: visibleResults, isComplete: isResultListComplete } = useIncrementalList(
-    results,
-    { batchSize: 10, delayMs: 16, resetKey: resultListKey }
-  );
+  const { visibleItems: visibleResults, isComplete: isResultListComplete } =
+    useIncrementalList(results, {
+      batchSize: 10,
+      delayMs: 16,
+      resetKey: resultListKey,
+    });
 
   useEffect(() => {
     if (!id) return;
@@ -67,15 +89,21 @@ export default function WorkspacePage() {
         const wsRes = await fetch(`/api/workspaces/${id}`);
         const wsJson = await wsRes.json();
         if (!wsRes.ok || !wsJson.success) {
-          throw new Error(wsJson.error || "ワークスペースの読み込みに失敗しました");
+          throw new Error(
+            wsJson.error || "ワークスペースの読み込みに失敗しました"
+          );
         }
         const ws: QtiWorkspace = wsJson.workspace;
         setWorkspace(ws);
         if (!ws.assessmentTestFile) {
-          throw new Error('assessment-test が見つかりません');
+          throw new Error("assessment-test が見つかりません");
         }
 
-        const assessmentTestXml = await fetchFileText(ws.id, "assessment", ws.assessmentTestFile);
+        const assessmentTestXml = await fetchFileText(
+          ws.id,
+          "assessment",
+          ws.assessmentTestFile
+        );
         const itemRefs = parseAssessmentTestXml(assessmentTestXml);
         if (ws.itemFiles.length !== itemRefs.length) {
           throw new Error("assessmentTest と設問ファイル数が一致しません");
@@ -88,15 +116,25 @@ export default function WorkspacePage() {
           const item = parseQtiItemXml(xml);
           const expectedIdentifier = itemRefs[index]?.identifier;
           if (expectedIdentifier && item.identifier !== expectedIdentifier) {
-            throw new Error(`assessmentTest と item identifier が一致しません: ${expectedIdentifier}`);
+            throw new Error(
+              `assessmentTest と item identifier が一致しません: ${expectedIdentifier}`
+            );
           }
           return item;
         });
         const itemsWithResolvedAssets = parsedItems.map((item, index) => {
           const baseFilePath = ws.itemFiles[index];
-          const promptHtml = rewriteHtmlImageSources(item.promptHtml, ws.id, baseFilePath);
+          const promptHtml = rewriteHtmlImageSources(
+            item.promptHtml,
+            ws.id,
+            baseFilePath
+          );
           const candidateExplanationHtml = item.candidateExplanationHtml
-            ? rewriteHtmlImageSources(item.candidateExplanationHtml, ws.id, baseFilePath)
+            ? rewriteHtmlImageSources(
+                item.candidateExplanationHtml,
+                ws.id,
+                baseFilePath
+              )
             : null;
           return {
             ...item,
@@ -109,7 +147,9 @@ export default function WorkspacePage() {
         const resultTexts = await Promise.all(
           ws.resultFiles.map((name) => fetchFileText(ws.id, "results", name))
         );
-        const parsedResults = resultTexts.map((xml, index) => parseQtiResultsXml(xml, ws.resultFiles[index]));
+        const parsedResults = resultTexts.map((xml, index) =>
+          parseQtiResultsXml(xml, ws.resultFiles[index])
+        );
 
         const mappedResults = parsedResults.map((result) => {
           const remapped = remapResultToAssessmentItems(result, itemRefs);
@@ -129,7 +169,11 @@ export default function WorkspacePage() {
         setCurrentResultIndex(0);
         setCurrentItemIndex(0);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "ワークスペースの読み込みに失敗しました");
+        setError(
+          err instanceof Error
+            ? err.message
+            : "ワークスペースの読み込みに失敗しました"
+        );
       } finally {
         setLoading(false);
       }
@@ -169,7 +213,10 @@ export default function WorkspacePage() {
   const currentResult = results[currentResultIndex];
   const currentItem = items[currentItemIndex];
 
-  const totalMaxScore = useMemo(() => items.reduce((sum, item) => sum + getItemMaxScore(item), 0), [items]);
+  const totalMaxScore = useMemo(
+    () => items.reduce((sum, item) => sum + getItemMaxScore(item), 0),
+    [items]
+  );
 
   const currentScore = useMemo(() => {
     if (!currentResult) return 0;
@@ -185,9 +232,13 @@ export default function WorkspacePage() {
     setTimeout(() => setLoopMessage(null), 2000);
   };
 
-  const makeCommentKey = (resultFile: string, itemId: string) => `${resultFile}::${itemId}::comment`;
-  const makeCriterionKey = (resultFile: string, itemId: string, criterionIndex: number) =>
-    `${resultFile}::${itemId}::criterion::${criterionIndex}`;
+  const makeCommentKey = (resultFile: string, itemId: string) =>
+    `${resultFile}::${itemId}::comment`;
+  const makeCriterionKey = (
+    resultFile: string,
+    itemId: string,
+    criterionIndex: number
+  ) => `${resultFile}::${itemId}::criterion::${criterionIndex}`;
 
   const startSaveFeedback = (key: string) => {
     const existing = saveStatusTimersRef.current[key];
@@ -223,7 +274,9 @@ export default function WorkspacePage() {
 
   useEffect(() => {
     return () => {
-      Object.values(saveStatusTimersRef.current).forEach((timer) => window.clearTimeout(timer));
+      Object.values(saveStatusTimersRef.current).forEach((timer) =>
+        window.clearTimeout(timer)
+      );
       saveStatusTimersRef.current = {};
     };
   }, []);
@@ -239,7 +292,8 @@ export default function WorkspacePage() {
 
   const prevCandidate = () => {
     if (!results.length) return;
-    const prevIndex = (currentResultIndex - 1 + results.length) % results.length;
+    const prevIndex =
+      (currentResultIndex - 1 + results.length) % results.length;
     if (currentResultIndex === 0) {
       showLoop("最初から最後の受講者に移動しました");
     }
@@ -264,16 +318,27 @@ export default function WorkspacePage() {
     setCurrentItemIndex(prevIndex);
   };
 
-  const formatResponse = (item: QtiItem, itemResult?: QtiResult["itemResults"][string]) => {
-    if (!itemResult || itemResult.response === null || itemResult.response === undefined) {
+  const formatResponse = (
+    item: QtiItem,
+    itemResult?: QtiResult["itemResults"][string]
+  ) => {
+    if (
+      !itemResult ||
+      itemResult.response === null ||
+      itemResult.response === undefined
+    ) {
       return "（回答なし）";
     }
     if (Array.isArray(itemResult.response)) {
       return itemResult.response.join(" / ");
     }
     if (item.type === "choice") {
-      const choice = item.choices.find((c) => c.identifier === itemResult.response);
-      return choice ? `${choice.text} (${itemResult.response})` : String(itemResult.response);
+      const choice = item.choices.find(
+        (c) => c.identifier === itemResult.response
+      );
+      return choice
+        ? `${choice.text} (${itemResult.response})`
+        : String(itemResult.response);
     }
     return String(itemResult.response);
   };
@@ -302,7 +367,11 @@ export default function WorkspacePage() {
     });
   };
 
-  const updateComment = async (resultFile: string, itemId: string, comment: string) => {
+  const updateComment = async (
+    resultFile: string,
+    itemId: string,
+    comment: string
+  ) => {
     await fetch(`/api/workspaces/${id}/results`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -338,14 +407,23 @@ export default function WorkspacePage() {
           response: null,
           rubricOutcomes: {},
         };
-        nextRubricOutcomes = { ...itemResult.rubricOutcomes, [criterionIndex]: value };
+        nextRubricOutcomes = {
+          ...itemResult.rubricOutcomes,
+          [criterionIndex]: value,
+        };
         const item = items.find((i) => i.identifier === itemId);
-        const score = item ? getRubricScore(item, nextRubricOutcomes) : itemResult.score;
+        const score = item
+          ? getRubricScore(item, nextRubricOutcomes)
+          : itemResult.score;
         return {
           ...res,
           itemResults: {
             ...res.itemResults,
-            [itemId]: { ...itemResult, rubricOutcomes: nextRubricOutcomes, score },
+            [itemId]: {
+              ...itemResult,
+              rubricOutcomes: nextRubricOutcomes,
+              score,
+            },
           },
         };
       })
@@ -356,14 +434,20 @@ export default function WorkspacePage() {
       finishSaveFeedback(saveKey, "saved");
     } catch (err) {
       setResults(prevResults);
-      setError(err instanceof Error ? err.message : "採点結果の更新に失敗しました");
+      setError(
+        err instanceof Error ? err.message : "採点結果の更新に失敗しました"
+      );
       finishSaveFeedback(saveKey, "idle");
     } finally {
       setSaving(false);
     }
   };
 
-  const updateResultComment = async (resultFile: string, itemId: string, comment: string) => {
+  const updateResultComment = async (
+    resultFile: string,
+    itemId: string,
+    comment: string
+  ) => {
     const prevResults = results;
     setSaving(true);
     setError(null);
@@ -376,16 +460,27 @@ export default function WorkspacePage() {
       finishSaveFeedback(saveKey, "saved");
     } catch (err) {
       setResults(prevResults);
-      setError(err instanceof Error ? err.message : "コメントの更新に失敗しました");
+      setError(
+        err instanceof Error ? err.message : "コメントの更新に失敗しました"
+      );
       finishSaveFeedback(saveKey, "idle");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleToggleCriterion = async (itemId: string, criterionIndex: number, value: boolean) => {
+  const handleToggleCriterion = async (
+    itemId: string,
+    criterionIndex: number,
+    value: boolean
+  ) => {
     if (!currentResult) return;
-    await updateRubricOutcome(currentResult.fileName, itemId, criterionIndex, value);
+    await updateRubricOutcome(
+      currentResult.fileName,
+      itemId,
+      criterionIndex,
+      value
+    );
   };
 
   const handleCommentBlur = async (itemId: string, comment: string) => {
@@ -393,7 +488,11 @@ export default function WorkspacePage() {
     await updateResultComment(currentResult.fileName, itemId, comment);
   };
 
-  const handleCommentChange = (resultFile: string, itemId: string, comment: string) => {
+  const handleCommentChange = (
+    resultFile: string,
+    itemId: string,
+    comment: string
+  ) => {
     setResults((prev) => updateItemComment(prev, resultFile, itemId, comment));
   };
 
@@ -415,23 +514,37 @@ export default function WorkspacePage() {
   }
 
   if (!workspace) {
-    return <div className="p-8 text-center text-gray-500">ワークスペースが見つかりません</div>;
+    return (
+      <div className="p-8 text-center text-gray-500">
+        ワークスペースが見つかりません
+      </div>
+    );
   }
   if (!currentResult && error) {
     return <div className="p-8 text-center text-red-600">{error}</div>;
   }
   if (!currentResult) {
-    return <div className="p-8 text-center text-gray-500">結果データがありません</div>;
+    return (
+      <div className="p-8 text-center text-gray-500">
+        結果データがありません
+      </div>
+    );
   }
   if (!currentItem) {
-    return <div className="p-8 text-center text-gray-500">設問データがありません</div>;
+    return (
+      <div className="p-8 text-center text-gray-500">
+        設問データがありません
+      </div>
+    );
   }
 
   return (
     <div ref={pageRef} className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
         <header className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">QTI 3.0 採点システム</h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            QTI 3.0 採点システム
+          </h1>
           <p className="text-gray-600">ワークスペース: {workspace.name}</p>
         </header>
 
@@ -481,11 +594,15 @@ export default function WorkspacePage() {
                   {totalMaxScore > 0 ? (
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-700">
-                        合計: <span className="text-blue-600">{currentScore}</span> / {totalMaxScore}
+                        合計:{" "}
+                        <span className="text-blue-600">{currentScore}</span> /{" "}
+                        {totalMaxScore}
                       </span>
                     </div>
                   ) : (
-                    <span className="text-xs text-gray-400">採点基準がありません</span>
+                    <span className="text-xs text-gray-400">
+                      採点基準がありません
+                    </span>
                   )}
                 </>
               ) : (
@@ -499,11 +616,16 @@ export default function WorkspacePage() {
                   {currentItem.rubric.length > 0 ? (
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-700">
-                        配点: <span className="text-blue-600">{getItemMaxScore(currentItem)}</span>
+                        配点:{" "}
+                        <span className="text-blue-600">
+                          {getItemMaxScore(currentItem)}
+                        </span>
                       </span>
                     </div>
                   ) : (
-                    <span className="text-xs text-gray-400">採点基準がありません</span>
+                    <span className="text-xs text-gray-400">
+                      採点基準がありません
+                    </span>
                   )}
                 </>
               )}
@@ -571,10 +693,12 @@ export default function WorkspacePage() {
               {viewMode === "candidate" ? (
                 <div className="mt-4 pt-4 border-t border-gray-200 text-sm grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div>
-                    <span className="text-gray-500">sourcedId:</span> {currentResult.sourcedId || "未設定"}
+                    <span className="text-gray-500">sourcedId:</span>{" "}
+                    {currentResult.sourcedId || "未設定"}
                   </div>
                   <div>
-                    <span className="text-gray-500">result file:</span> {currentResult.fileName}
+                    <span className="text-gray-500">result file:</span>{" "}
+                    {currentResult.fileName}
                   </div>
                   <div>
                     <span className="text-gray-500">items:</span> {items.length}
@@ -583,13 +707,16 @@ export default function WorkspacePage() {
               ) : (
                 <div className="mt-4 pt-4 border-t border-gray-200 text-sm grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div>
-                    <span className="text-gray-500">identifier:</span> {currentItem.identifier}
+                    <span className="text-gray-500">identifier:</span>{" "}
+                    {currentItem.identifier}
                   </div>
                   <div>
-                    <span className="text-gray-500">rubric:</span> {currentItem.rubric.length}
+                    <span className="text-gray-500">rubric:</span>{" "}
+                    {currentItem.rubric.length}
                   </div>
                   <div>
-                    <span className="text-gray-500">candidates:</span> {results.length}
+                    <span className="text-gray-500">candidates:</span>{" "}
+                    {results.length}
                   </div>
                 </div>
               )}
@@ -604,19 +731,30 @@ export default function WorkspacePage() {
               const responseText = formatResponse(item, itemResult);
               const displayPromptHtml =
                 item.type === "cloze"
-                  ? applyResponsesToPromptHtml(item.promptHtml, itemResult?.response)
+                  ? applyResponsesToPromptHtml(
+                      item.promptHtml,
+                      itemResult?.response
+                    )
                   : item.promptHtml;
               const rubric = item.rubric;
               const comment = itemResult?.comment ?? "";
-              const commentKey = makeCommentKey(currentResult.fileName, item.identifier);
+              const commentKey = makeCommentKey(
+                currentResult.fileName,
+                item.identifier
+              );
               const commentStatus = saveStatusByKey[commentKey];
               return (
-                <div key={item.identifier} className="bg-white border rounded-lg p-6 shadow-sm">
+                <div
+                  key={item.identifier}
+                  className="bg-white border rounded-lg p-6 shadow-sm"
+                >
                   <div className="flex items-center gap-3 mb-3">
                     <span className="bg-blue-600 text-white text-sm font-bold px-3 py-1 rounded-md">
                       問{index + 1}
                     </span>
-                    <h2 className="text-lg font-semibold text-gray-800">{item.title}</h2>
+                    <h2 className="text-lg font-semibold text-gray-800">
+                      {item.title}
+                    </h2>
                   </div>
                   <div
                     className="prose max-w-none qti-prompt"
@@ -637,7 +775,8 @@ export default function WorkspacePage() {
                       <div className="text-xs text-gray-500 mb-2">採点基準</div>
                       <div className="space-y-2">
                         {rubric.map((criterion) => {
-                          const value = itemResult?.rubricOutcomes[criterion.index];
+                          const value =
+                            itemResult?.rubricOutcomes[criterion.index];
                           const criterionKey = makeCriterionKey(
                             currentResult.fileName,
                             item.identifier,
@@ -645,17 +784,32 @@ export default function WorkspacePage() {
                           );
                           const criterionStatus = saveStatusByKey[criterionKey];
                           return (
-                            <div key={criterion.index} className="flex items-center gap-2">
+                            <div
+                              key={criterion.index}
+                              className="flex items-center gap-2"
+                            >
                               <button
                                 type="button"
-                                onClick={() => handleToggleCriterion(item.identifier, criterion.index, true)}
+                                onClick={() =>
+                                  handleToggleCriterion(
+                                    item.identifier,
+                                    criterion.index,
+                                    true
+                                  )
+                                }
                                 className={`px-2 py-1 rounded text-xs border ${value === true ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-600 border-gray-300"}`}
                               >
                                 〇
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleToggleCriterion(item.identifier, criterion.index, false)}
+                                onClick={() =>
+                                  handleToggleCriterion(
+                                    item.identifier,
+                                    criterion.index,
+                                    false
+                                  )
+                                }
                                 className={`px-2 py-1 rounded text-xs border ${value === false ? "bg-red-600 text-white border-red-600" : "bg-white text-gray-600 border-gray-300"}`}
                               >
                                 ×
@@ -669,7 +823,9 @@ export default function WorkspacePage() {
                                   data-testid={`save-status-${currentResult.fileName}-${item.identifier}-criterion-${criterion.index}`}
                                   aria-live="polite"
                                 >
-                                  {criterionStatus === "saving" ? "保存中..." : "保存しました"}
+                                  {criterionStatus === "saving"
+                                    ? "保存中..."
+                                    : "保存しました"}
                                 </span>
                               )}
                             </div>
@@ -678,14 +834,18 @@ export default function WorkspacePage() {
                       </div>
                       <div className="mt-3">
                         <div className="flex items-center justify-between mb-1">
-                          <label className="block text-xs font-medium text-gray-600">コメント</label>
+                          <label className="block text-xs font-medium text-gray-600">
+                            コメント
+                          </label>
                           {commentStatus && (
                             <span
                               className={`text-xs ${commentStatus === "saving" ? "text-gray-500" : "text-green-600"}`}
                               data-testid={`save-status-${currentResult.fileName}-${item.identifier}-comment`}
                               aria-live="polite"
                             >
-                              {commentStatus === "saving" ? "保存中..." : "保存しました"}
+                              {commentStatus === "saving"
+                                ? "保存中..."
+                                : "保存しました"}
                             </span>
                           )}
                         </div>
@@ -693,8 +853,16 @@ export default function WorkspacePage() {
                           className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           rows={2}
                           value={comment}
-                          onChange={(value) => handleCommentChange(currentResult.fileName, item.identifier, value)}
-                          onBlur={(value) => handleCommentBlur(item.identifier, value)}
+                          onChange={(value) =>
+                            handleCommentChange(
+                              currentResult.fileName,
+                              item.identifier,
+                              value
+                            )
+                          }
+                          onBlur={(value) =>
+                            handleCommentBlur(item.identifier, value)
+                          }
                         />
                       </div>
                     </div>
@@ -710,7 +878,9 @@ export default function WorkspacePage() {
                 <span className="bg-blue-600 text-white text-sm font-bold px-3 py-1 rounded-md">
                   問{currentItemIndex + 1}
                 </span>
-                <h2 className="text-lg font-semibold text-gray-800">{currentItem.title}</h2>
+                <h2 className="text-lg font-semibold text-gray-800">
+                  {currentItem.title}
+                </h2>
               </div>
               <div
                 className="prose max-w-none qti-prompt"
@@ -735,15 +905,27 @@ export default function WorkspacePage() {
                 const responseText = formatResponse(currentItem, itemResult);
                 const comment = itemResult?.comment ?? "";
                 const itemScore = getItemScore(currentItem, itemResult);
-                const commentKey = makeCommentKey(result.fileName, currentItem.identifier);
+                const commentKey = makeCommentKey(
+                  result.fileName,
+                  currentItem.identifier
+                );
                 const commentStatus = saveStatusByKey[commentKey];
                 return (
-                  <div key={result.fileName} className="bg-white border rounded-lg p-6 shadow-sm">
+                  <div
+                    key={result.fileName}
+                    className="bg-white border rounded-lg p-6 shadow-sm"
+                  >
                     <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                      <div className="text-base font-semibold text-gray-800">{result.candidateName}</div>
+                      <div className="text-base font-semibold text-gray-800">
+                        {result.candidateName}
+                      </div>
                       {currentItem.rubric.length > 0 && (
                         <span className="text-sm text-gray-600">
-                          得点: <span className="text-blue-600">{itemScore ?? 0}</span> / {getItemMaxScore(currentItem)}
+                          得点:{" "}
+                          <span className="text-blue-600">
+                            {itemScore ?? 0}
+                          </span>{" "}
+                          / {getItemMaxScore(currentItem)}
                         </span>
                       )}
                     </div>
@@ -753,22 +935,34 @@ export default function WorkspacePage() {
 
                     {currentItem.rubric.length > 0 && (
                       <div className="mt-5 border-t pt-4">
-                        <div className="text-xs text-gray-500 mb-2">採点基準</div>
+                        <div className="text-xs text-gray-500 mb-2">
+                          採点基準
+                        </div>
                         <div className="space-y-2">
                           {currentItem.rubric.map((criterion) => {
-                            const value = itemResult?.rubricOutcomes[criterion.index];
+                            const value =
+                              itemResult?.rubricOutcomes[criterion.index];
                             const criterionKey = makeCriterionKey(
                               result.fileName,
                               currentItem.identifier,
                               criterion.index
                             );
-                            const criterionStatus = saveStatusByKey[criterionKey];
+                            const criterionStatus =
+                              saveStatusByKey[criterionKey];
                             return (
-                              <div key={criterion.index} className="flex items-center gap-2">
+                              <div
+                                key={criterion.index}
+                                className="flex items-center gap-2"
+                              >
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    updateRubricOutcome(result.fileName, currentItem.identifier, criterion.index, true)
+                                    updateRubricOutcome(
+                                      result.fileName,
+                                      currentItem.identifier,
+                                      criterion.index,
+                                      true
+                                    )
                                   }
                                   className={`px-2 py-1 rounded text-xs border ${value === true ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-600 border-gray-300"}`}
                                 >
@@ -777,7 +971,12 @@ export default function WorkspacePage() {
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    updateRubricOutcome(result.fileName, currentItem.identifier, criterion.index, false)
+                                    updateRubricOutcome(
+                                      result.fileName,
+                                      currentItem.identifier,
+                                      criterion.index,
+                                      false
+                                    )
                                   }
                                   className={`px-2 py-1 rounded text-xs border ${value === false ? "bg-red-600 text-white border-red-600" : "bg-white text-gray-600 border-gray-300"}`}
                                 >
@@ -792,7 +991,9 @@ export default function WorkspacePage() {
                                     data-testid={`save-status-${result.fileName}-${currentItem.identifier}-criterion-${criterion.index}`}
                                     aria-live="polite"
                                   >
-                                    {criterionStatus === "saving" ? "保存中..." : "保存しました"}
+                                    {criterionStatus === "saving"
+                                      ? "保存中..."
+                                      : "保存しました"}
                                   </span>
                                 )}
                               </div>
@@ -801,14 +1002,18 @@ export default function WorkspacePage() {
                         </div>
                         <div className="mt-3">
                           <div className="flex items-center justify-between mb-1">
-                            <label className="block text-xs font-medium text-gray-600">コメント</label>
+                            <label className="block text-xs font-medium text-gray-600">
+                              コメント
+                            </label>
                             {commentStatus && (
                               <span
                                 className={`text-xs ${commentStatus === "saving" ? "text-gray-500" : "text-green-600"}`}
                                 data-testid={`save-status-${result.fileName}-${currentItem.identifier}-comment`}
                                 aria-live="polite"
                               >
-                                {commentStatus === "saving" ? "保存中..." : "保存しました"}
+                                {commentStatus === "saving"
+                                  ? "保存中..."
+                                  : "保存しました"}
                               </span>
                             )}
                           </div>
@@ -816,8 +1021,20 @@ export default function WorkspacePage() {
                             className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             rows={2}
                             value={comment}
-                            onChange={(value) => handleCommentChange(result.fileName, currentItem.identifier, value)}
-                            onBlur={(value) => updateResultComment(result.fileName, currentItem.identifier, value)}
+                            onChange={(value) =>
+                              handleCommentChange(
+                                result.fileName,
+                                currentItem.identifier,
+                                value
+                              )
+                            }
+                            onBlur={(value) =>
+                              updateResultComment(
+                                result.fileName,
+                                currentItem.identifier,
+                                value
+                              )
+                            }
                           />
                         </div>
                       </div>
@@ -848,7 +1065,9 @@ export default function WorkspacePage() {
                   onClick={(event) => event.stopPropagation()}
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-gray-800">設問プレビュー</h2>
+                    <h2 className="text-lg font-semibold text-gray-800">
+                      設問プレビュー
+                    </h2>
                     <button
                       type="button"
                       onClick={() => setShowItemPreview(false)}
@@ -861,7 +1080,9 @@ export default function WorkspacePage() {
                     <span className="bg-blue-600 text-white text-sm font-bold px-3 py-1 rounded-md">
                       問{currentItemIndex + 1}
                     </span>
-                    <h3 className="text-base font-semibold text-gray-800">{currentItem.title}</h3>
+                    <h3 className="text-base font-semibold text-gray-800">
+                      {currentItem.title}
+                    </h3>
                   </div>
                   <div
                     className="prose max-w-none qti-prompt"
@@ -869,7 +1090,9 @@ export default function WorkspacePage() {
                     dangerouslySetInnerHTML={{ __html: currentItem.promptHtml }}
                   />
                   {currentItem.candidateExplanationHtml && (
-                    <ExplanationPanel html={currentItem.candidateExplanationHtml} />
+                    <ExplanationPanel
+                      html={currentItem.candidateExplanationHtml}
+                    />
                   )}
                 </div>
               </div>

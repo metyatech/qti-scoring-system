@@ -1,0 +1,14 @@
+# build outputs
+.next/
+dist/
+out/
+build/
+
+# dependencies
+node_modules/
+
+# composed files
+AGENTS.md
+
+# config files
+package-lock.json

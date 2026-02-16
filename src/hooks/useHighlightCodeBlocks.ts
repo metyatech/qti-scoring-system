@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { scheduleHighlightCodeBlocks } from '@/utils/highlight';
+import { useEffect, useRef } from "react";
+import { scheduleHighlightCodeBlocks } from "@/utils/highlight";
 
 type UseHighlightDeps = ReadonlyArray<unknown>;
 
@@ -9,7 +9,9 @@ export const useHighlightCodeBlocks = (
   enabled = true
 ) => {
   const rafRef = useRef<number | null>(null);
-  const scheduleRef = useRef<ReturnType<typeof scheduleHighlightCodeBlocks> | null>(null);
+  const scheduleRef = useRef<ReturnType<
+    typeof scheduleHighlightCodeBlocks
+  > | null>(null);
 
   useEffect(() => {
     if (!enabled) return;

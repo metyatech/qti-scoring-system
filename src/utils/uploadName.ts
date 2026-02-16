@@ -8,7 +8,7 @@ const decodePercentEncoded = (value: string): string => {
 };
 
 export const normalizeUploadPath = (value: string): string => {
-  const normalized = value.replace(/\\/g, '/').replace(/^\/+/, '').trim();
+  const normalized = value.replace(/\\/g, "/").replace(/^\/+/, "").trim();
   const decoded = decodePercentEncoded(normalized);
-  return decoded.replace(/\\/g, '/').replace(/^\/+/, '').trim();
+  return decoded.replace(/\\/g, "/").replace(/^\/+/, "").trim();
 };

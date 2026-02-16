@@ -1,76 +1,85 @@
-'use client';
+"use client";
 
-import { useState, type InputHTMLAttributes } from 'react';
+import { useState, type InputHTMLAttributes } from "react";
 
 interface QtiUploadProps {
   onWorkspaceCreated: (workspaceId: string) => void;
 }
 
-const acceptXml = '.xml,application/xml,text/xml';
+const acceptXml = ".xml,application/xml,text/xml";
 const directoryInputProps = {
-  webkitdirectory: '',
-  directory: '',
+  webkitdirectory: "",
+  directory: "",
 } as unknown as InputHTMLAttributes<HTMLInputElement>;
 
 export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
-  const [workspaceName, setWorkspaceName] = useState('');
-  const [workspaceDescription, setWorkspaceDescription] = useState('');
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [workspaceDescription, setWorkspaceDescription] = useState("");
   const [assessmentFiles, setAssessmentFiles] = useState<File[]>([]);
   const [resultFiles, setResultFiles] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const getRelativePath = (file: File) =>
-    (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
+    (file as File & { webkitRelativePath?: string }).webkitRelativePath ||
+    file.name;
 
   const assessmentTestCount = assessmentFiles.reduce((count, file) => {
-    return getRelativePath(file).endsWith('assessment-test.qti.xml') ? count + 1 : count;
+    return getRelativePath(file).endsWith("assessment-test.qti.xml")
+      ? count + 1
+      : count;
   }, 0);
 
   const handleSubmit = async () => {
     setError(null);
     if (!workspaceName.trim()) {
-      setError('ワークスペース名を入力してください');
+      setError("ワークスペース名を入力してください");
       return;
     }
     if (assessmentFiles.length === 0) {
-      setError('assessment-test を含むフォルダを選択してください');
+      setError("assessment-test を含むフォルダを選択してください");
       return;
     }
     if (resultFiles.length === 0) {
-      setError('QTI Results Reporting XML を1つ以上選択してください');
+      setError("QTI Results Reporting XML を1つ以上選択してください");
       return;
     }
     if (assessmentTestCount !== 1) {
-      setError('assessment-test.qti.xml を1つだけ含むフォルダを選択してください');
+      setError(
+        "assessment-test.qti.xml を1つだけ含むフォルダを選択してください"
+      );
       return;
     }
 
     setIsLoading(true);
     try {
       const form = new FormData();
-      form.append('name', workspaceName.trim());
+      form.append("name", workspaceName.trim());
       if (workspaceDescription.trim()) {
-        form.append('description', workspaceDescription.trim());
+        form.append("description", workspaceDescription.trim());
       }
       assessmentFiles.forEach((file) => {
         const relativePath = getRelativePath(file) || file.name;
-        form.append('assessmentFiles', file, relativePath);
+        form.append("assessmentFiles", file, relativePath);
       });
-      resultFiles.forEach(file => form.append('results', file));
+      resultFiles.forEach((file) => form.append("results", file));
 
-      const response = await fetch('/api/workspaces', {
-        method: 'POST',
+      const response = await fetch("/api/workspaces", {
+        method: "POST",
         body: form,
       });
 
       const result = await response.json();
       if (!response.ok || !result.success) {
-        throw new Error(result.error || 'ワークスペースの作成に失敗しました');
+        throw new Error(result.error || "ワークスペースの作成に失敗しました");
       }
       onWorkspaceCreated(result.workspace.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'ワークスペースの作成に失敗しました');
+      setError(
+        err instanceof Error
+          ? err.message
+          : "ワークスペースの作成に失敗しました"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -85,7 +94,10 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
 
         <div className="space-y-4">
           <div>
-            <label htmlFor="workspaceName" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="workspaceName"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               ワークスペース名 *
             </label>
             <input
@@ -100,7 +112,10 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
           </div>
 
           <div>
-            <label htmlFor="workspaceDescription" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="workspaceDescription"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               説明（任意）
             </label>
             <textarea
@@ -123,16 +138,23 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
               accept={acceptXml}
               multiple
               {...directoryInputProps}
-              onChange={(e) => setAssessmentFiles(Array.from(e.target.files || []))}
+              onChange={(e) =>
+                setAssessmentFiles(Array.from(e.target.files || []))
+              }
               disabled={isLoading}
               className="block w-full text-sm text-gray-700"
             />
             <div className="text-xs text-gray-500 mt-1">
-              選択中: {assessmentFiles.length}件 / assessment-test:{' '}
-              {assessmentTestCount === 1 ? '検出済み' : assessmentTestCount === 0 ? '未検出' : '複数検出'}
+              選択中: {assessmentFiles.length}件 / assessment-test:{" "}
+              {assessmentTestCount === 1
+                ? "検出済み"
+                : assessmentTestCount === 0
+                  ? "未検出"
+                  : "複数検出"}
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              assessment-test.qti.xml と設問 XML を含む出力フォルダを選択してください。
+              assessment-test.qti.xml と設問 XML
+              を含む出力フォルダを選択してください。
             </div>
           </div>
 
@@ -148,15 +170,18 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
               disabled={isLoading}
               className="block w-full text-sm text-gray-700"
             />
-            <div className="text-xs text-gray-500 mt-1">選択中: {resultFiles.length}件</div>
+            <div className="text-xs text-gray-500 mt-1">
+              選択中: {resultFiles.length}件
+            </div>
           </div>
-
         </div>
 
         {error && (
           <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
             <div className="text-red-700 font-medium">エラー</div>
-            <div className="text-red-600 text-sm mt-1 whitespace-pre-line">{error}</div>
+            <div className="text-red-600 text-sm mt-1 whitespace-pre-line">
+              {error}
+            </div>
           </div>
         )}
 
@@ -166,12 +191,12 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
             disabled={isLoading}
             className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
-            {isLoading ? '作成中...' : 'ワークスペースを作成'}
+            {isLoading ? "作成中..." : "ワークスペースを作成"}
           </button>
           <button
             onClick={() => {
-              setWorkspaceName('');
-              setWorkspaceDescription('');
+              setWorkspaceName("");
+              setWorkspaceDescription("");
               setAssessmentFiles([]);
               setResultFiles([]);
               setError(null);
