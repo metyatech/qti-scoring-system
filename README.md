@@ -18,7 +18,7 @@ This repository contains the QTI 3.0 scoring system web application.
 
 ## Tech Stack
 
-- Framework: Next.js 15+ (App Router)
+- Framework: Next.js 16+ (App Router)
 - Language: TypeScript
 - Styling: Tailwind CSS
 - Linting: ESLint
@@ -82,7 +82,7 @@ npm run dev
 - Build: `npm run build`
 - Test: `npm run test`
 - Lint: `npm run lint`
-- Verify (lint + test + build): `npm run verify`
+- Verify (lint + format:check + test + build): `npm run verify`
 - Dev server: `npm run dev`
 - E2E: run `npx playwright install chromium` once, then `npm run test:e2e`
 

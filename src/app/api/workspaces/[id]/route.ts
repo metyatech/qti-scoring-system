@@ -45,7 +45,6 @@ export async function PUT(
   try {
     const { id } = await params;
     const body: UpdateWorkspaceRequest = await request.json();
-    console.log("ワークスペース更新リクエスト:", id, body);
 
     // バリデーション
     if (!body.name?.trim()) {
