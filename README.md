@@ -73,6 +73,14 @@ npm run dev
 - Lint: `npm run lint`
 - Dev server: `npm run dev`
 - E2E: run `npx playwright install chromium` once, then `npm run test:e2e`
+- Verify: `npm run verify` (runs lint, test, test:e2e, typecheck, and audit)
+
+## Health and Monitoring
+- Health check endpoint: `/api/health` (returns JSON status)
+
+## Accessibility
+Automated accessibility checks are performed as part of the E2E test suite using `@axe-core/playwright`.
+Run accessibility tests specifically: `npx playwright test e2e/accessibility.spec.ts`
 
 ## Requirements and Configuration
 - No required environment variables are documented.
