@@ -12,7 +12,7 @@
     "test:e2e": "playwright test",
     "test:watch": "vitest",
     "lint:contrast": "playwright test e2e/contrast.spec.ts",
-    "verify": "npm run lint && npm run test && npm run test:e2e && npm run lint:contrast && npm run build"
+    "verify": "npm run lint && npm run test && npm run test:e2e && npm run lint:contrast && tsc --noEmit && npm audit && npm run build"
   },
   "dependencies": {
     "apply-to-qti-results": "github:metyatech/apply-to-qti-results#main",

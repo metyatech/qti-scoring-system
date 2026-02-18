@@ -222,6 +222,7 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
             <div className="mb-8">
                 <button
                     onClick={onCreateNew}
+                    title="新しく QTI 3.0 採点用のワークスペースを作成します"
                     className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
                     新しいワークスペースを作成
@@ -241,11 +242,13 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
                             accept=".zip"
                             ref={importInputRef}
                             onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+                            title="他の環境からエクスポートされたワークスペースの ZIP ファイルを選択してください"
                             className="block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
                         />
                         <button
                             onClick={handleImport}
                             disabled={importing}
+                            title="選択した ZIP ファイルからワークスペースを復元します"
                             className="mt-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-green-400 transition-colors"
                         >
                             {importing ? 'インポート中...' : 'インポート実行'}
@@ -349,18 +352,21 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
                                         <div className="flex gap-2 ml-4">
                                             <button
                                                 onClick={() => onSelectWorkspace(workspace.id)}
+                                                title="このワークスペースを開いて採点を開始または継続します"
                                                 className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
                                             >
                                                 開く
                                             </button>
                                             <button
                                                 onClick={() => startEditWorkspace(workspace)}
+                                                title="ワークスペース名や説明を変更します"
                                                 className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
                                             >
                                                 編集
                                             </button>
                                             <button
                                                 onClick={() => handleDeleteWorkspace(workspace.id, workspace.name)}
+                                                title="このワークスペースとそのデータを完全に削除します"
                                                 className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
                                             >
                                                 削除

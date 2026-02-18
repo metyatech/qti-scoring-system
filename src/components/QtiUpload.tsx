@@ -125,6 +125,7 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
               {...directoryInputProps}
               onChange={(e) => setAssessmentFiles(Array.from(e.target.files || []))}
               disabled={isLoading}
+              title="assessment-test.qti.xml と設問 XML が入っているフォルダを選択してください"
               className="block w-full text-sm text-gray-700"
             />
             <div className="text-xs text-gray-500 mt-1">
@@ -146,6 +147,7 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
               multiple
               onChange={(e) => setResultFiles(Array.from(e.target.files || []))}
               disabled={isLoading}
+              title="採点対象となる解答結果（Results Reporting）の XML ファイルを選択してください（複数選択可）"
               className="block w-full text-sm text-gray-700"
             />
             <div className="text-xs text-gray-500 mt-1">選択中: {resultFiles.length}件</div>
@@ -164,6 +166,7 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
           <button
             onClick={handleSubmit}
             disabled={isLoading}
+            title="入力されたデータをもとにワークスペースを作成し、初期化処理を実行します"
             className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
             {isLoading ? '作成中...' : 'ワークスペースを作成'}
@@ -177,6 +180,7 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
               setError(null);
             }}
             disabled={isLoading}
+            title="入力をすべてクリアします"
             className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             リセット
