@@ -45,8 +45,15 @@ export const applyQtiResultsUpdate = async (params: {
   preserveMet?: boolean;
 }) => {
   const resolvePath = (p: string) => {
-    // 先頭の '@' を除去し、絶対パスに解決
-    const cleanPath = p.startsWith('@') ? p.substring(1) : p;
+    // '@javascript-course-exam' などのエイリアスを実パスに置換
+    // 環境に合わせて D:\ghws\javascript-course-exam をベースとする
+    const repoRoot = 'D:\\ghws\\javascript-course-exam';
+    let cleanPath = p;
+    if (p.startsWith('@javascript-course-exam')) {
+      cleanPath = path.join(repoRoot, p.substring('@javascript-course-exam'.length));
+    } else if (p.startsWith('@')) {
+      cleanPath = p.substring(1);
+    }
     return path.resolve(cleanPath);
   };
 
