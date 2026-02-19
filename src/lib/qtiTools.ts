@@ -45,25 +45,27 @@ export const applyQtiResultsUpdate = async (params: {
   preserveMet?: boolean;
 }) => {
   const resolvePath = (p: string) => {
-    // 環境に合わせて D:\ghws\javascript-course-exam をベースとする
+    // どんな '@...' プレフィックスも D:\ghws\javascript-course-exam に強制置換
     const repoRoot = 'D:\\ghws\\javascript-course-exam';
-    let cleanPath = p;
-    if (p.startsWith('@javascript-course-exam')) {
-      const sub = p.substring('@javascript-course-exam'.length);
-      // path.join でドライブルートにならないよう、先頭のスラッシュを除去
-      const relativeSub = sub.startsWith('\\') || sub.startsWith('/') ? sub.substring(1) : sub;
-      cleanPath = path.join(repoRoot, relativeSub);
-    } else if (p.startsWith('@')) {
-      cleanPath = p.substring(1);
+    let cleanPath = p.replace(/^@[^\\/]+/, repoRoot);
+    
+    if (cleanPath.startsWith('@')) {
+      cleanPath = path.join(repoRoot, cleanPath.split(/[\\/]/).slice(1).join(path.sep));
     }
-    return path.resolve(cleanPath);
+
+    let resolved = cleanPath;
+    if (!/^[a-zA-Z]:\\/.test(cleanPath)) {
+      resolved = path.resolve(process.cwd().replace(/^@[^\\/]+/, repoRoot), cleanPath);
+    }
+    
+    return resolved.replace(/^@[^\\/]+/, repoRoot);
   };
 
   const toolsRoot = resolvePath(resolveToolsRoot());
   const tsxCli = resolvePath(resolveTsxCliPath());
   const applyCli = resolvePath(path.join(toolsRoot, 'src', 'cli.ts'));
 
-  console.log('applyQtiResultsUpdate debug:', {
+  const debugInfo = {
     toolsRoot,
     tsxCli,
     applyCli,
@@ -71,16 +73,17 @@ export const applyQtiResultsUpdate = async (params: {
     assessmentTest: resolvePath(params.assessmentTestPath),
     scoring: resolvePath(params.scoringPath),
     cwd: resolvePath(process.cwd()),
-  });
+  };
+  console.error('applyQtiResultsUpdate debug:', debugInfo);
 
   if (!fs.existsSync(toolsRoot)) {
-    throw new Error(`apply-to-qti-results が見つかりません: ${toolsRoot}`);
+    throw new Error(`apply-to-qti-results が見つかりません: ${toolsRoot} (Debug: ${JSON.stringify(debugInfo)})`);
   }
   if (!fs.existsSync(tsxCli)) {
-    throw new Error(`tsx CLI が見つかりません: ${tsxCli}`);
+    throw new Error(`tsx CLI が見つかりません: ${tsxCli} (Debug: ${JSON.stringify(debugInfo)})`);
   }
   if (!fs.existsSync(applyCli)) {
-    throw new Error(`apply-to-qti-results CLI が見つかりません: ${applyCli}`);
+    throw new Error(`apply-to-qti-results CLI が見つかりません: ${applyCli} (Debug: ${JSON.stringify(debugInfo)})`);
   }
 
   const args: string[] = [
@@ -105,7 +108,7 @@ export const applyQtiResultsUpdate = async (params: {
     if (execResult.stderr) {
       console.warn('apply-to-qti-results stderr:', execResult.stderr);
     }
-    return await fs.promises.readFile(params.resultsPath, 'utf-8');
+    return await fs.promises.readFile(resolvePath(params.resultsPath), 'utf-8');
   } catch (error) {
     const err = error as { stdout?: string; stderr?: string; message?: string };
     const raw = err.stdout || '';
