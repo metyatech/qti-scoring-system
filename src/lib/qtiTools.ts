@@ -62,11 +62,11 @@ export const applyQtiResultsUpdate = async (params: {
     tsxCli,
     applyCli,
     '--results',
-    params.resultsPath,
+    path.resolve(params.resultsPath), // 絶対パスに解決
     '--assessment-test',
-    params.assessmentTestPath,
+    path.resolve(params.assessmentTestPath), // 絶対パスに解決
     '--scoring',
-    params.scoringPath,
+    path.resolve(params.scoringPath), // 絶対パスに解決
   ];
   if (params.preserveMet) {
     args.push('--preserve-met');
@@ -74,7 +74,7 @@ export const applyQtiResultsUpdate = async (params: {
 
   try {
     const execResult = await execFileAsync('node', args, {
-      cwd: toolsRoot,
+      cwd: process.cwd(), // qti-scoring-system のルートで実行
       maxBuffer: 10 * 1024 * 1024,
     });
     if (execResult.stderr) {
