@@ -44,9 +44,15 @@ export const applyQtiResultsUpdate = async (params: {
   scoringPath: string;
   preserveMet?: boolean;
 }) => {
-  const toolsRoot = resolveToolsRoot();
-  const tsxCli = resolveTsxCliPath();
-  const applyCli = path.join(toolsRoot, 'src', 'cli.ts');
+  const resolvePath = (p: string) => {
+    // 先頭の '@' を除去し、絶対パスに解決
+    const cleanPath = p.startsWith('@') ? p.substring(1) : p;
+    return path.resolve(cleanPath);
+  };
+
+  const toolsRoot = resolvePath(resolveToolsRoot());
+  const tsxCli = resolvePath(resolveTsxCliPath());
+  const applyCli = resolvePath(path.join(toolsRoot, 'src', 'cli.ts'));
 
   if (!fs.existsSync(toolsRoot)) {
     throw new Error(`apply-to-qti-results が見つかりません: ${toolsRoot}`);
@@ -57,12 +63,6 @@ export const applyQtiResultsUpdate = async (params: {
   if (!fs.existsSync(applyCli)) {
     throw new Error(`apply-to-qti-results CLI が見つかりません: ${applyCli}`);
   }
-
-  const resolvePath = (p: string) => {
-    // 先頭の '@' を除去し、絶対パスに解決
-    const cleanPath = p.startsWith('@') ? p.substring(1) : p;
-    return path.resolve(cleanPath);
-  };
 
   const args: string[] = [
     tsxCli,
@@ -80,7 +80,7 @@ export const applyQtiResultsUpdate = async (params: {
 
   try {
     const execResult = await execFileAsync('node', args, {
-      cwd: process.cwd(),
+      cwd: resolvePath(process.cwd()),
       maxBuffer: 10 * 1024 * 1024,
     });
     if (execResult.stderr) {
