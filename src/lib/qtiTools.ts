@@ -58,15 +58,21 @@ export const applyQtiResultsUpdate = async (params: {
     throw new Error(`apply-to-qti-results CLI が見つかりません: ${applyCli}`);
   }
 
+  const resolvePath = (p: string) => {
+    // 先頭の '@' を除去し、絶対パスに解決
+    const cleanPath = p.startsWith('@') ? p.substring(1) : p;
+    return path.resolve(cleanPath);
+  };
+
   const args: string[] = [
     tsxCli,
     applyCli,
     '--results',
-    path.resolve(params.resultsPath), // 絶対パスに解決
+    resolvePath(params.resultsPath),
     '--assessment-test',
-    path.resolve(params.assessmentTestPath), // 絶対パスに解決
+    resolvePath(params.assessmentTestPath),
     '--scoring',
-    path.resolve(params.scoringPath), // 絶対パスに解決
+    resolvePath(params.scoringPath),
   ];
   if (params.preserveMet) {
     args.push('--preserve-met');
@@ -74,7 +80,7 @@ export const applyQtiResultsUpdate = async (params: {
 
   try {
     const execResult = await execFileAsync('node', args, {
-      cwd: process.cwd(), // qti-scoring-system のルートで実行
+      cwd: process.cwd(),
       maxBuffer: 10 * 1024 * 1024,
     });
     if (execResult.stderr) {
