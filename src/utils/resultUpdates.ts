@@ -25,7 +25,10 @@ export const updateItemComment = (
 
 export const buildCriteriaUpdate = (
   rubric: Array<{ index: number }>,
+  rubricOutcomes: Record<number, boolean>,
   criterionIndex: number,
   value: boolean
-): Array<{ met?: boolean }> =>
-  rubric.map((criterion) => (criterion.index === criterionIndex ? { met: value } : {}));
+): Array<{ met: boolean }> =>
+  rubric.map((criterion) => ({
+    met: criterion.index === criterionIndex ? value : Boolean(rubricOutcomes[criterion.index]),
+  }));

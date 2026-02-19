@@ -286,7 +286,9 @@ export default function WorkspacePage() {
   ) => {
     const item = items.find((i) => i.identifier === itemId);
     if (!item || item.rubric.length === 0) return;
-    const criteria = buildCriteriaUpdate(item.rubric, criterionIndex, value);
+    const currentResult = results.find((r) => r.fileName === resultFile);
+    const currentOutcomes = currentResult?.itemResults[itemId]?.rubricOutcomes ?? {};
+    const criteria = buildCriteriaUpdate(item.rubric, currentOutcomes, criterionIndex, value);
     await fetch(`/api/workspaces/${id}/results`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
