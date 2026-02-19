@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { withResolvedAssessmentHrefs } from '@/lib/assessmentHrefFix';
 
 const execFileAsync = promisify(execFile);
 
@@ -44,24 +45,33 @@ export const generateCsvReport = async (params: {
   const tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'qti-report-'));
   try {
     const sortedResults = [...assessmentResultPaths].sort();
-    const args = [
-      cliPath,
-      '--assessment-test',
-      assessmentTestPath,
-      ...sortedResults.flatMap((resultPath) => ['--assessment-result', resultPath]),
-      '--out-dir',
-      tempRoot,
-    ];
-    await execFileAsync(process.execPath, args, {
-      cwd: process.cwd(),
-      maxBuffer: 10 * 1024 * 1024,
+    let csvContent: string | null = null;
+
+    await withResolvedAssessmentHrefs(assessmentTestPath, async (resolvedAssessmentPath) => {
+      const args = [
+        cliPath,
+        '--assessment-test',
+        resolvedAssessmentPath,
+        ...sortedResults.flatMap((resultPath) => ['--assessment-result', resultPath]),
+        '--out-dir',
+        tempRoot,
+      ];
+      await execFileAsync(process.execPath, args, {
+        cwd: process.cwd(),
+        maxBuffer: 10 * 1024 * 1024,
+      });
+
+      const csvPath = path.join(tempRoot, 'report.csv');
+      if (!fs.existsSync(csvPath)) {
+        throw new Error('CSV の生成に失敗しました');
+      }
+      csvContent = await fs.promises.readFile(csvPath, 'utf-8');
     });
 
-    const csvPath = path.join(tempRoot, 'report.csv');
-    if (!fs.existsSync(csvPath)) {
+    if (csvContent === null) {
       throw new Error('CSV の生成に失敗しました');
     }
-  return await fs.promises.readFile(csvPath, 'utf-8');
+    return csvContent;
   } finally {
     await fs.promises.rm(tempRoot, { recursive: true, force: true });
   }
@@ -79,17 +89,20 @@ export const generateReportOutput = async (params: {
   const cliPath = resolveReporterCliPath();
   const outputDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'qti-report-'));
   const sortedResults = [...assessmentResultPaths].sort();
-  const args = [
-    cliPath,
-    '--assessment-test',
-    assessmentTestPath,
-    ...sortedResults.flatMap((resultPath) => ['--assessment-result', resultPath]),
-    '--out-dir',
-    outputDir,
-  ];
-  await execFileAsync(process.execPath, args, {
-    cwd: process.cwd(),
-    maxBuffer: 10 * 1024 * 1024,
+
+  await withResolvedAssessmentHrefs(assessmentTestPath, async (resolvedAssessmentPath) => {
+    const args = [
+      cliPath,
+      '--assessment-test',
+      resolvedAssessmentPath,
+      ...sortedResults.flatMap((resultPath) => ['--assessment-result', resultPath]),
+      '--out-dir',
+      outputDir,
+    ];
+    await execFileAsync(process.execPath, args, {
+      cwd: process.cwd(),
+      maxBuffer: 10 * 1024 * 1024,
+    });
   });
 
   return {
