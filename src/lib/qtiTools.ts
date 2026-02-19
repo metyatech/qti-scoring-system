@@ -45,12 +45,14 @@ export const applyQtiResultsUpdate = async (params: {
   preserveMet?: boolean;
 }) => {
   const resolvePath = (p: string) => {
-    // '@javascript-course-exam' などのエイリアスを実パスに置換
     // 環境に合わせて D:\ghws\javascript-course-exam をベースとする
     const repoRoot = 'D:\\ghws\\javascript-course-exam';
     let cleanPath = p;
     if (p.startsWith('@javascript-course-exam')) {
-      cleanPath = path.join(repoRoot, p.substring('@javascript-course-exam'.length));
+      const sub = p.substring('@javascript-course-exam'.length);
+      // path.join でドライブルートにならないよう、先頭のスラッシュを除去
+      const relativeSub = sub.startsWith('\\') || sub.startsWith('/') ? sub.substring(1) : sub;
+      cleanPath = path.join(repoRoot, relativeSub);
     } else if (p.startsWith('@')) {
       cleanPath = p.substring(1);
     }
@@ -60,6 +62,16 @@ export const applyQtiResultsUpdate = async (params: {
   const toolsRoot = resolvePath(resolveToolsRoot());
   const tsxCli = resolvePath(resolveTsxCliPath());
   const applyCli = resolvePath(path.join(toolsRoot, 'src', 'cli.ts'));
+
+  console.log('applyQtiResultsUpdate debug:', {
+    toolsRoot,
+    tsxCli,
+    applyCli,
+    results: resolvePath(params.resultsPath),
+    assessmentTest: resolvePath(params.assessmentTestPath),
+    scoring: resolvePath(params.scoringPath),
+    cwd: resolvePath(process.cwd()),
+  });
 
   if (!fs.existsSync(toolsRoot)) {
     throw new Error(`apply-to-qti-results が見つかりません: ${toolsRoot}`);
