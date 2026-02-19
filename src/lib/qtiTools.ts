@@ -2,7 +2,6 @@ import path from 'path';
 import fs from 'fs';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { withResolvedAssessmentHrefs } from '@/lib/assessmentHrefFix';
 
 const execFileAsync = promisify(execFile);
 
@@ -59,37 +58,30 @@ export const applyQtiResultsUpdate = async (params: {
     throw new Error('apply-to-qti-results CLI が見つかりません: ' + applyCli);
   }
 
-  let execError: unknown = null;
-  await withResolvedAssessmentHrefs(params.assessmentTestPath, async (assessmentPath) => {
-    const args: string[] = [
-      tsxCli,
-      applyCli,
-      '--results',
-      params.resultsPath,
-      '--assessment-test',
-      assessmentPath,
-      '--scoring',
-      params.scoringPath,
-    ];
-    if (params.preserveMet) {
-      args.push('--preserve-met');
-    }
+  const args: string[] = [
+    tsxCli,
+    applyCli,
+    '--results',
+    params.resultsPath,
+    '--assessment-test',
+    params.assessmentTestPath,
+    '--scoring',
+    params.scoringPath,
+  ];
+  if (params.preserveMet) {
+    args.push('--preserve-met');
+  }
 
-    try {
-      const execResult = await execFileAsync('node', args, {
-        cwd: process.cwd(),
-        maxBuffer: 10 * 1024 * 1024,
-      });
-      if (execResult.stderr) {
-        console.warn('apply-to-qti-results stderr:', execResult.stderr);
-      }
-    } catch (error) {
-      execError = error;
+  try {
+    const execResult = await execFileAsync('node', args, {
+      cwd: process.cwd(),
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    if (execResult.stderr) {
+      console.warn('apply-to-qti-results stderr:', execResult.stderr);
     }
-  });
-
-  if (execError !== null) {
-    const err = execError as { stdout?: string; stderr?: string; message?: string };
+  } catch (error) {
+    const err = error as { stdout?: string; stderr?: string; message?: string };
     const raw = err.stdout || '';
     try {
       const payload = JSON.parse(raw) as { reason?: string; path?: string; identifier?: string };
