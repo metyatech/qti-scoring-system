@@ -12,9 +12,9 @@ type IncrementalState<T> = {
   isComplete: boolean;
 };
 
-export const useIncrementalList = <T,>(
+export const useIncrementalList = <T>(
   items: T[],
-  options: IncrementalOptions = {}
+  options: IncrementalOptions = {},
 ): IncrementalState<T> => {
   const batchSize = options.batchSize ?? 30;
   const delayMs = options.delayMs ?? 0;

@@ -26,7 +26,7 @@ describe('scheduleHighlightCodeBlocks', () => {
 
   const countHighlighted = (root: ParentNode) =>
     Array.from(root.querySelectorAll('pre code')).filter(
-      (block) => (block as HTMLElement).dataset.hljs === '1'
+      (block) => (block as HTMLElement).dataset.hljs === '1',
     ).length;
 
   it('highlights blocks in batches', () => {

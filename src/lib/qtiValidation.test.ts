@@ -4,21 +4,24 @@ import { extractItemIdentifier, validateAssessmentConsistency } from '@/lib/qtiV
 const makeItemXml = (identifier: string) => `<?xml version="1.0" encoding="UTF-8"?>
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="${identifier}" />`;
 
-const makeAssessmentTestXml = (refs: Array<{ identifier: string; href: string }>) => `<?xml version="1.0" encoding="UTF-8"?>
+const makeAssessmentTestXml = (
+  refs: Array<{ identifier: string; href: string }>,
+) => `<?xml version="1.0" encoding="UTF-8"?>
 <qti-assessment-test xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="assessment-test" title="Assessment Test">
   <qti-test-part identifier="part-1" navigation-mode="linear" submission-mode="individual">
     <qti-assessment-section identifier="section-1" title="Section 1" visible="true">
       ${refs
         .map(
-          (ref) =>
-            `<qti-assessment-item-ref identifier="${ref.identifier}" href="${ref.href}" />`
+          (ref) => `<qti-assessment-item-ref identifier="${ref.identifier}" href="${ref.href}" />`,
         )
         .join('\n      ')}
     </qti-assessment-section>
   </qti-test-part>
 </qti-assessment-test>`;
 
-const makeResultsXml = (items: Array<{ identifier: string; sequenceIndex?: number }>) => `<?xml version="1.0" encoding="UTF-8"?>
+const makeResultsXml = (
+  items: Array<{ identifier: string; sequenceIndex?: number }>,
+) => `<?xml version="1.0" encoding="UTF-8"?>
 <assessmentResult xmlns="http://www.imsglobal.org/xsd/imsqti_result_v3p0">
   <context sourcedId="candidate-1" />
   ${items
@@ -84,7 +87,10 @@ describe('validateAssessmentConsistency', () => {
       ['item-1.qti.xml', makeItemXml('item-1')],
     ]);
     const resultFiles = [
-      { name: 'assessmentResult-1.xml', xml: makeResultsXml([{ identifier: 'Q1', sequenceIndex: 1 }]) },
+      {
+        name: 'assessmentResult-1.xml',
+        xml: makeResultsXml([{ identifier: 'Q1', sequenceIndex: 1 }]),
+      },
     ];
 
     const validation = validateAssessmentConsistency({
@@ -109,7 +115,10 @@ describe('validateAssessmentConsistency', () => {
       ['b/item-1.qti.xml', makeItemXml('item-1')],
     ]);
     const resultFiles = [
-      { name: 'assessmentResult-1.xml', xml: makeResultsXml([{ identifier: 'Q1', sequenceIndex: 1 }]) },
+      {
+        name: 'assessmentResult-1.xml',
+        xml: makeResultsXml([{ identifier: 'Q1', sequenceIndex: 1 }]),
+      },
     ];
 
     const validation = validateAssessmentConsistency({
@@ -130,7 +139,10 @@ describe('validateAssessmentConsistency', () => {
     ]);
     const assessmentFiles = new Map<string, string>([[assessmentTestPath, assessmentTestXml]]);
     const resultFiles = [
-      { name: 'assessmentResult-1.xml', xml: makeResultsXml([{ identifier: 'Q1', sequenceIndex: 1 }]) },
+      {
+        name: 'assessmentResult-1.xml',
+        xml: makeResultsXml([{ identifier: 'Q1', sequenceIndex: 1 }]),
+      },
     ];
 
     const validation = validateAssessmentConsistency({
@@ -154,7 +166,10 @@ describe('validateAssessmentConsistency', () => {
       ['item-1.qti.xml', makeItemXml('item-x')],
     ]);
     const resultFiles = [
-      { name: 'assessmentResult-1.xml', xml: makeResultsXml([{ identifier: 'Q1', sequenceIndex: 1 }]) },
+      {
+        name: 'assessmentResult-1.xml',
+        xml: makeResultsXml([{ identifier: 'Q1', sequenceIndex: 1 }]),
+      },
     ];
 
     const validation = validateAssessmentConsistency({
@@ -165,7 +180,9 @@ describe('validateAssessmentConsistency', () => {
     });
 
     expect(validation.isValid).toBe(false);
-    expect(validation.errors.join('\n')).toContain('assessmentTest の identifier と item identifier が一致しません');
+    expect(validation.errors.join('\n')).toContain(
+      'assessmentTest の identifier と item identifier が一致しません',
+    );
   });
 
   it('fails when results are missing sequenceIndex', () => {

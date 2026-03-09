@@ -86,7 +86,9 @@ export const applyQtiResultsUpdate = async (params: {
     const raw = err.stdout || '';
     try {
       const payload = JSON.parse(raw) as { reason?: string; path?: string; identifier?: string };
-      const detail = payload.identifier ? `${payload.identifier}: ${payload.reason}` : payload.reason;
+      const detail = payload.identifier
+        ? `${payload.identifier}: ${payload.reason}`
+        : payload.reason;
       throw new Error(detail || 'QTI 結果の更新に失敗しました');
     } catch {
       throw new Error(err.message || 'QTI 結果の更新に失敗しました');

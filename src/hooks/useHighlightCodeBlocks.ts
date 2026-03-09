@@ -6,7 +6,7 @@ type UseHighlightDeps = ReadonlyArray<unknown>;
 export const useHighlightCodeBlocks = (
   rootRef: React.RefObject<ParentNode | null>,
   deps: UseHighlightDeps,
-  enabled = true
+  enabled = true,
 ) => {
   const rafRef = useRef<number | null>(null);
   const scheduleRef = useRef<ReturnType<typeof scheduleHighlightCodeBlocks> | null>(null);

@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef } from "react";
-import { autoResizeTextarea } from "@/utils/textarea";
+import { useLayoutEffect, useRef } from 'react';
+import { autoResizeTextarea } from '@/utils/textarea';
 
 interface AutoResizeTextareaProps {
   value: string;
@@ -31,7 +31,7 @@ export default function AutoResizeTextarea({
       onChange={(event) => onChange(event.target.value)}
       onInput={() => autoResizeTextarea(ref.current)}
       onBlur={onBlur ? (event) => onBlur(event.target.value) : undefined}
-      style={{ overflow: "hidden", resize: "none" }}
+      style={{ overflow: 'hidden', resize: 'none' }}
     />
   );
 }

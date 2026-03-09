@@ -31,9 +31,7 @@ export default function ExplanationPanel({ html }: ExplanationPanelProps) {
           {isOpen ? '解説を隠す' : '解説を表示'}
         </span>
       </div>
-      {isOpen && (
-        <div id={contentId} className="mt-2" dangerouslySetInnerHTML={{ __html: html }} />
-      )}
+      {isOpen && <div id={contentId} className="mt-2" dangerouslySetInnerHTML={{ __html: html }} />}
     </div>
   );
 }

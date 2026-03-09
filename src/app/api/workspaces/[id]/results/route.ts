@@ -8,10 +8,7 @@ import { applyQtiResultsUpdate } from '@/lib/qtiTools';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body: QtiResultUpdateRequest = await request.json();
@@ -54,13 +51,24 @@ export async function PUT(
       });
       await updateResultXml(id, body.resultFile, updatedXml);
     } finally {
-      try { await fs.promises.unlink(tmpPath); } catch { /* ignore */ }
-      try { await fs.promises.unlink(tmpResultsPath); } catch { /* ignore */ }
+      try {
+        await fs.promises.unlink(tmpPath);
+      } catch {
+        /* ignore */
+      }
+      try {
+        await fs.promises.unlink(tmpResultsPath);
+      } catch {
+        /* ignore */
+      }
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('結果更新エラー:', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'サーバーエラー' }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'サーバーエラー' },
+      { status: 500 },
+    );
   }
 }

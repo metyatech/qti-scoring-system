@@ -26,6 +26,6 @@ test('switching view modes and navigation stays responsive', async ({ page }) =>
       await expect(page.getByText('E2E User A')).toBeVisible();
     },
     ['assessmentResult-multi-1.xml', 'assessmentResult-multi-2.xml'],
-    'assessment-multi'
+    'assessment-multi',
   );
 });

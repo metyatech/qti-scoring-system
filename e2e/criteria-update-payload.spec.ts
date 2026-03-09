@@ -8,7 +8,7 @@ test('criteria update request omits criterionText payload', async ({ page }) => 
     const requestPromise = page.waitForRequest(
       (request) =>
         request.method() === 'PUT' &&
-        request.url().includes(`/api/workspaces/${workspaceId}/results`)
+        request.url().includes(`/api/workspaces/${workspaceId}/results`),
     );
     const responsePromise = waitForResultsUpdate(page);
 

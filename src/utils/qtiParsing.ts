@@ -136,7 +136,7 @@ export const resolveAssessmentHref = (assessmentTestPath: string, href: string):
 
 export const remapResultToAssessmentItems = (
   result: QtiResult,
-  itemRefs: AssessmentItemRef[]
+  itemRefs: AssessmentItemRef[],
 ): RemapResult => {
   const mappedItemResults: Record<string, QtiItemResult> = {};
   const missingResultIdentifiers: string[] = [];

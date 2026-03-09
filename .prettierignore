@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+.next/
+dist/
+out/
+
+# Artifacts
+AGENTS.md
+package-lock.json
+
+# Local env files
+.env*.local
+
+# Tests
+coverage/
+playwright-report/
+test-results/

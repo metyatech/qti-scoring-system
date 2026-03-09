@@ -8,9 +8,12 @@ describe('createSingleFlight', () => {
     const deferred: { resolve: (value: number) => void } = {
       resolve: () => undefined,
     };
-    const fn = vi.fn(() => new Promise<number>((resolve) => {
-      deferred.resolve = resolve;
-    }));
+    const fn = vi.fn(
+      () =>
+        new Promise<number>((resolve) => {
+          deferred.resolve = resolve;
+        }),
+    );
 
     const first = singleFlight(fn);
     const second = singleFlight(fn);
@@ -33,7 +36,7 @@ describe('createSingleFlight', () => {
     await expect(
       singleFlight(async () => {
         throw error;
-      })
+      }),
     ).rejects.toThrow('boom');
 
     const result = await singleFlight(async () => 9);

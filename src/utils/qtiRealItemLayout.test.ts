@@ -27,7 +27,7 @@ describe('real QTI item layout around blanks', () => {
     highlightCodeBlocks(root);
 
     const pre = Array.from(root.querySelectorAll('pre')).find((node) =>
-      node.querySelector('input.qti-blank-input')
+      node.querySelector('input.qti-blank-input'),
     );
     const html = pre?.innerHTML ?? '';
     expect(html).not.toMatch(/opacity:\s*<\/code>\s*[\r\n]+\s*<input/);
@@ -43,7 +43,7 @@ describe('real QTI item layout around blanks', () => {
     highlightCodeBlocks(root);
 
     const pre = Array.from(root.querySelectorAll('pre')).find((node) =>
-      node.querySelector('input.qti-blank-input')
+      node.querySelector('input.qti-blank-input'),
     );
     const html = pre?.innerHTML ?? '';
     const blank5Index = html.indexOf('data-blank="5"');

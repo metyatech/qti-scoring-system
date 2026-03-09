@@ -6,7 +6,7 @@ const buildWorkspaceFileUrl = (workspaceId: string, name: string) =>
 export const rewriteHtmlImageSources = (
   html: string,
   workspaceId: string,
-  baseFilePath: string
+  baseFilePath: string,
 ): string =>
   rewriteHtmlImageSourcesCore(html, baseFilePath, {
     resolveUrl: (resolved) => buildWorkspaceFileUrl(workspaceId, resolved),

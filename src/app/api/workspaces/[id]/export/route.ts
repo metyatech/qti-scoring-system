@@ -9,7 +9,7 @@ const buildExportFileName = (workspaceName: string) => {
   const now = new Date();
   const pad = (value: number) => value.toString().padStart(2, '0');
   const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(
-    now.getHours()
+    now.getHours(),
   )}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
   const safeName = sanitizeFileName(workspaceName);
   return `${safeName || 'workspace'}-${timestamp}.zip`;
@@ -35,7 +35,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     console.error('ワークスペースエクスポートエラー:', error);
     return NextResponse.json(
       { error: 'ワークスペースのエクスポートに失敗しました' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

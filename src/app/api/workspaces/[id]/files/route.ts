@@ -30,10 +30,7 @@ const resolveContentType = (filePath: string) => {
   return 'application/octet-stream';
 };
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
@@ -47,7 +44,10 @@ export async function GET(
     try {
       safeRelPath = sanitizeRelativePath(name);
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : 'name が不正です' }, { status: 400 });
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'name が不正です' },
+        { status: 400 },
+      );
     }
 
     const filePath = resolveFilePath(id, kind, safeRelPath);

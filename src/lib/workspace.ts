@@ -10,8 +10,13 @@ const fileLocks = new Map<string, Promise<unknown>>();
 const withFileLock = async <T>(filePath: string, fn: () => Promise<T>): Promise<T> => {
   const prev = fileLocks.get(filePath) || Promise.resolve();
   let result: T;
-  const exec = prev.then(fn).then(r => { result = r; });
-  fileLocks.set(filePath, exec.catch(() => {}));
+  const exec = prev.then(fn).then((r) => {
+    result = r;
+  });
+  fileLocks.set(
+    filePath,
+    exec.catch(() => {}),
+  );
   try {
     await exec;
     return result!;
@@ -26,7 +31,11 @@ const atomicWriteFile = async (filePath: string, data: string) => {
   const tmpPath = filePath + '.tmp';
   const bakPath = filePath + '.bak';
   if (fs.existsSync(filePath)) {
-    try { await fs.promises.copyFile(filePath, bakPath); } catch { /* ignore */ }
+    try {
+      await fs.promises.copyFile(filePath, bakPath);
+    } catch {
+      /* ignore */
+    }
   }
   await fs.promises.writeFile(tmpPath, data, 'utf-8');
   await fs.promises.rename(tmpPath, filePath);
@@ -94,7 +103,9 @@ export const listWorkspaces = async (): Promise<QtiWorkspaceSummary[]> => {
         console.error(`workspace.json 読み込み失敗: ${metaPath}`, error);
       }
     }
-    return summaries.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return summaries.sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
   } catch (error) {
     console.error('ワークスペース一覧の取得に失敗:', error);
     return [];
@@ -103,7 +114,7 @@ export const listWorkspaces = async (): Promise<QtiWorkspaceSummary[]> => {
 
 export const updateWorkspace = async (
   id: string,
-  updates: UpdateWorkspaceRequest
+  updates: UpdateWorkspaceRequest,
 ): Promise<QtiWorkspace | null> => {
   const existing = await readWorkspace(id);
   if (!existing) return null;
@@ -128,7 +139,11 @@ export const deleteWorkspace = async (id: string): Promise<boolean> => {
   }
 };
 
-export const updateResultXml = async (id: string, resultFile: string, xml: string): Promise<void> => {
+export const updateResultXml = async (
+  id: string,
+  resultFile: string,
+  xml: string,
+): Promise<void> => {
   const resultPath = path.join(getWorkspaceDir(id), 'results', resultFile);
   await withFileLock(resultPath, async () => {
     await atomicWriteFile(resultPath, xml);
@@ -145,7 +160,10 @@ export const ensureWorkspaceSubdirs = async (id: string) => {
 };
 
 export const sanitizeFileName = (name: string) =>
-  name.replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim();
+  name
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 export const sanitizeRelativePath = (value: string) => {
   const replaced = value.replace(/\\/g, '/').trim();

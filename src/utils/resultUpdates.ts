@@ -4,7 +4,7 @@ export const updateItemComment = (
   results: QtiResult[],
   resultFile: string,
   itemId: string,
-  comment: string
+  comment: string,
 ): QtiResult[] => {
   return results.map((result) => {
     if (result.fileName !== resultFile) return result;
@@ -26,6 +26,6 @@ export const updateItemComment = (
 export const buildCriteriaUpdate = (
   rubric: Array<{ index: number }>,
   criterionIndex: number,
-  value: boolean
+  value: boolean,
 ): Array<{ met?: boolean }> =>
   rubric.map((criterion) => (criterion.index === criterionIndex ? { met: value } : {}));

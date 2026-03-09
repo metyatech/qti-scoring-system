@@ -12,12 +12,14 @@ export const extractItemIdentifier = (xml: string): string | null => extractItem
 
 type AssessmentItemRefResolved = AssessmentItemRef & { resolvedHref: string };
 
-const extractAssessmentItemRefs = (xml: string): { itemRefs: AssessmentItemRef[]; errors: string[] } => {
+const extractAssessmentItemRefs = (
+  xml: string,
+): { itemRefs: AssessmentItemRef[]; errors: string[] } => {
   const parsed = parseAssessmentItemRefsFromXml(xml);
   const errors = parsed.errors.map((error) =>
     error.code === 'missing-itemref-identifier-or-href'
       ? 'assessmentTest の itemRef に identifier / href がありません'
-      : 'assessmentTest に itemRef がありません'
+      : 'assessmentTest に itemRef がありません',
   );
   return { itemRefs: parsed.itemRefs, errors };
 };
@@ -52,7 +54,7 @@ const detectDuplicateIdentifiers = (itemRefs: AssessmentItemRef[]): string[] => 
 const resolveItemRefs = (
   assessmentTestPath: string,
   itemRefs: AssessmentItemRef[],
-  assessmentFiles: Map<string, string>
+  assessmentFiles: Map<string, string>,
 ): { resolved: AssessmentItemRefResolved[]; errors: string[] } => {
   const resolved: AssessmentItemRefResolved[] = [];
   const errors: string[] = [];
@@ -101,7 +103,7 @@ const resolveItemRefs = (
     }
     if (itemIdentifier !== ref.identifier) {
       errors.push(
-        `assessmentTest の identifier と item identifier が一致しません: ${ref.identifier} != ${itemIdentifier}`
+        `assessmentTest の identifier と item identifier が一致しません: ${ref.identifier} != ${itemIdentifier}`,
       );
       continue;
     }
@@ -113,23 +115,27 @@ const resolveItemRefs = (
 const validateResultSequenceIndexes = (
   resultName: string,
   resultRefs: ResultItemRef[],
-  itemCount: number
+  itemCount: number,
 ): string[] => {
   const errors: string[] = [];
   const seenSequence = new Set<number>();
   for (const ref of resultRefs) {
     if (!ref.hasSequenceIndex || ref.sequenceIndex === null) {
-      errors.push(`results の itemResult に sequenceIndex が必要です: ${resultName} (${ref.identifier})`);
+      errors.push(
+        `results の itemResult に sequenceIndex が必要です: ${resultName} (${ref.identifier})`,
+      );
       continue;
     }
     if (ref.sequenceIndex > itemCount) {
       errors.push(
-        `results の sequenceIndex が assessmentTest の設問数を超えています: ${resultName} (${ref.identifier})`
+        `results の sequenceIndex が assessmentTest の設問数を超えています: ${resultName} (${ref.identifier})`,
       );
       continue;
     }
     if (seenSequence.has(ref.sequenceIndex)) {
-      errors.push(`results の sequenceIndex が重複しています: ${resultName} (${ref.sequenceIndex})`);
+      errors.push(
+        `results の sequenceIndex が重複しています: ${resultName} (${ref.sequenceIndex})`,
+      );
       continue;
     }
     seenSequence.add(ref.sequenceIndex);
@@ -153,10 +159,16 @@ export const validateAssessmentConsistency = (params: {
   errors.push(...parsed.errors);
   const duplicateIdentifiers = detectDuplicateIdentifiers(parsed.itemRefs);
   if (duplicateIdentifiers.length > 0) {
-    errors.push(`assessmentTest の identifier が重複しています: ${duplicateIdentifiers.join(', ')}`);
+    errors.push(
+      `assessmentTest の identifier が重複しています: ${duplicateIdentifiers.join(', ')}`,
+    );
   }
 
-  const resolvedRefs = resolveItemRefs(params.assessmentTestPath, parsed.itemRefs, params.assessmentFiles);
+  const resolvedRefs = resolveItemRefs(
+    params.assessmentTestPath,
+    parsed.itemRefs,
+    params.assessmentFiles,
+  );
   errors.push(...resolvedRefs.errors);
   const itemCount = parsed.itemRefs.length;
 
@@ -164,7 +176,9 @@ export const validateAssessmentConsistency = (params: {
     const resultParsed = extractResultItemRefs(resultFile.xml);
     errors.push(...resultParsed.errors.map((msg) => `${msg}: ${resultFile.name}`));
     if (resultParsed.itemRefs.length === 0 || itemCount === 0) continue;
-    errors.push(...validateResultSequenceIndexes(resultFile.name, resultParsed.itemRefs, itemCount));
+    errors.push(
+      ...validateResultSequenceIndexes(resultFile.name, resultParsed.itemRefs, itemCount),
+    );
   }
 
   return {

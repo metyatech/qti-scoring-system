@@ -7,24 +7,27 @@ export const createWorkspace = async (
   page: Page,
   name: string,
   resultsFiles: string | string[] = 'assessmentResult-1.xml',
-  assessmentFolder = 'assessment'
+  assessmentFolder = 'assessment',
 ) => {
   await page.goto('/workspace/new');
   await page.getByLabel('ワークスペース名 *').fill(name);
 
   const assessmentInput = page.locator('input[type="file"]').nth(0);
-  await assessmentInput.setInputFiles(path.join(process.cwd(), 'e2e', 'fixtures', assessmentFolder));
+  await assessmentInput.setInputFiles(
+    path.join(process.cwd(), 'e2e', 'fixtures', assessmentFolder),
+  );
 
   const resultsInput = page.locator('input[type="file"]').nth(1);
   const resolvedResultsFiles = Array.isArray(resultsFiles) ? resultsFiles : [resultsFiles];
   await resultsInput.setInputFiles(
-    resolvedResultsFiles.map((file) => path.join(process.cwd(), 'e2e', 'fixtures', 'results', file))
+    resolvedResultsFiles.map((file) =>
+      path.join(process.cwd(), 'e2e', 'fixtures', 'results', file),
+    ),
   );
 
   const createResponse = page.waitForResponse(
     (response) =>
-      response.request().method() === 'POST' &&
-      response.url().includes('/api/workspaces')
+      response.request().method() === 'POST' && response.url().includes('/api/workspaces'),
   );
   await page.getByRole('button', { name: 'ワークスペースを作成' }).click();
   const response = await createResponse;
@@ -60,7 +63,7 @@ export const withWorkspace = async (
   name: string,
   run: (workspaceId: string) => Promise<void>,
   resultsFiles?: string | string[],
-  assessmentFolder?: string
+  assessmentFolder?: string,
 ) => {
   const workspaceId = await createWorkspace(page, name, resultsFiles, assessmentFolder);
   try {
@@ -75,5 +78,5 @@ export const waitForResultsUpdate = (page: Page) =>
     (response) =>
       response.request().method() === 'PUT' &&
       response.url().includes('/api/workspaces/') &&
-      response.url().includes('/results')
+      response.url().includes('/results'),
   );

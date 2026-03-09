@@ -61,7 +61,7 @@ export const generateCsvReport = async (params: {
     if (!fs.existsSync(csvPath)) {
       throw new Error('CSV の生成に失敗しました');
     }
-  return await fs.promises.readFile(csvPath, 'utf-8');
+    return await fs.promises.readFile(csvPath, 'utf-8');
   } finally {
     await fs.promises.rm(tempRoot, { recursive: true, force: true });
   }

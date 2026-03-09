@@ -22,7 +22,9 @@ describe('ReportDownloadButton', () => {
   const originalRevokeObjectURL = URL.revokeObjectURL;
 
   beforeEach(() => {
-    (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -37,7 +39,8 @@ describe('ReportDownloadButton', () => {
     URL.createObjectURL = originalCreateObjectURL;
     URL.revokeObjectURL = originalRevokeObjectURL;
     vi.restoreAllMocks();
-    delete (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+    delete (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
+      .IS_REACT_ACT_ENVIRONMENT;
   });
 
   it('disables button and ignores concurrent clicks while downloading', async () => {
@@ -49,12 +52,7 @@ describe('ReportDownloadButton', () => {
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
     await act(async () => {
-      root.render(
-        <ReportDownloadButton
-          workspaceId="ws-1"
-          workspaceName="WS"
-        />
-      );
+      root.render(<ReportDownloadButton workspaceId="ws-1" workspaceName="WS" />);
     });
 
     const button = container.querySelector('button');
@@ -93,11 +91,7 @@ describe('ReportDownloadButton', () => {
 
     await act(async () => {
       root.render(
-        <ReportDownloadButton
-          workspaceId="ws-2"
-          workspaceName="WS2"
-          onError={onError}
-        />
+        <ReportDownloadButton workspaceId="ws-2" workspaceName="WS2" onError={onError} />,
       );
     });
 

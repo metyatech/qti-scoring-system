@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     console.error('ワークスペースインポートエラー:', error);
     return NextResponse.json(
       { error: 'ワークスペースのインポートに失敗しました' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -41,4 +41,3 @@ describe('applyResponsesToPromptHtml', () => {
     expect(blank?.getAttribute('size')).toBe('6');
   });
 });
-

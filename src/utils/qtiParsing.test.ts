@@ -53,7 +53,7 @@ describe('assessmentTest mapping helpers', () => {
     </responseVariable>
   </itemResult>
 </assessmentResult>`,
-      'results.xml'
+      'results.xml',
     );
     const remapped = remapResultToAssessmentItems(result, itemRefs);
     expect(remapped.missingResultIdentifiers).toHaveLength(0);
@@ -73,7 +73,7 @@ describe('assessmentTest mapping helpers', () => {
     </responseVariable>
   </itemResult>
 </assessmentResult>`,
-      'results.xml'
+      'results.xml',
     );
     const remapped = remapResultToAssessmentItems(result, itemRefs);
     expect(remapped.missingResultIdentifiers).toEqual(['X1']);
@@ -90,7 +90,7 @@ describe('assessmentTest mapping helpers', () => {
   <context sourcedId="candidate-1" />
   <itemResult identifier="Q2" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final" />
 </assessmentResult>`,
-      'results.xml'
+      'results.xml',
     );
     const remapped = remapResultToAssessmentItems(result, itemRefs);
     expect(remapped.missingResultIdentifiers).toHaveLength(0);
@@ -106,7 +106,7 @@ describe('assessmentTest mapping helpers', () => {
   <itemResult identifier="Q1" sequenceIndex="1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final" />
   <itemResult identifier="item-1" sequenceIndex="1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final" />
 </assessmentResult>`,
-      'results.xml'
+      'results.xml',
     );
     const remapped = remapResultToAssessmentItems(result, itemRefs);
     expect(remapped.duplicateItemIdentifiers).toContain('item-1');

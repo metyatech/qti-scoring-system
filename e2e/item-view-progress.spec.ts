@@ -20,6 +20,6 @@ test('item view renders results incrementally', async ({ page }) => {
       await expect(progress).toHaveText('受講者: 12 / 12', { timeout: 10000 });
     },
     resultsFiles,
-    'assessment-multi'
+    'assessment-multi',
   );
 });

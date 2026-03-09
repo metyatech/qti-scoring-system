@@ -11,7 +11,9 @@ describe('useHighlightCodeBlocks', () => {
   let rafId = 0;
 
   beforeEach(() => {
-    (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -37,7 +39,8 @@ describe('useHighlightCodeBlocks', () => {
     });
     container.remove();
     vi.restoreAllMocks();
-    delete (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+    delete (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
+      .IS_REACT_ACT_ENVIRONMENT;
   });
 
   const TestComponent = ({ tick, enabled = true }: { tick: number; enabled?: boolean }) => {
@@ -84,7 +87,9 @@ describe('useHighlightCodeBlocks', () => {
 
   it('cancels scheduled work on unmount', () => {
     const cancel = vi.fn();
-    (highlight.scheduleHighlightCodeBlocks as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+    (
+      highlight.scheduleHighlightCodeBlocks as unknown as ReturnType<typeof vi.fn>
+    ).mockReturnValueOnce({
       cancel,
     });
 

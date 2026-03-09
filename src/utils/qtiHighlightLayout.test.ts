@@ -18,7 +18,7 @@ describe('highlight theme layout with blanks', () => {
   it('overrides highlight.js block display for code segments', () => {
     const highlightCssPath = path.resolve(
       process.cwd(),
-      'node_modules/highlight.js/styles/github-dark.css'
+      'node_modules/highlight.js/styles/github-dark.css',
     );
     const globalsCssPath = path.resolve(process.cwd(), 'src/app/globals.css');
     const highlightStyle = loadCss(highlightCssPath);
@@ -33,7 +33,7 @@ describe('highlight theme layout with blanks', () => {
     highlightCodeBlocks(root);
 
     const pre = Array.from(root.querySelectorAll('pre')).find((node) =>
-      node.classList.contains('qti-pre-with-blanks')
+      node.classList.contains('qti-pre-with-blanks'),
     );
     expect(pre).not.toBeUndefined();
     const code = pre?.querySelector('code.hljs') as HTMLElement | null;

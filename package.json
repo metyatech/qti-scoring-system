@@ -11,8 +11,11 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
     "lint:contrast": "playwright test e2e/contrast.spec.ts",
-    "verify": "npm run lint && npm run test && npm run test:e2e && npm run lint:contrast && npm run build"
+    "verify": "npm run format && npm run lint && npm run typecheck && npm run test && npm run test:e2e && npm run lint:contrast && npm audit && npm run build",
+    "prepare": "husky"
   },
   "dependencies": {
     "apply-to-qti-results": "github:metyatech/apply-to-qti-results#main",
@@ -37,7 +40,10 @@
     "@types/react-dom": "^19",
     "eslint": "^9.39.2",
     "eslint-config-next": "16.1.6",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
     "jsdom": "^27.4.0",
+    "prettier": "^3.8.1",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.18"

@@ -83,7 +83,7 @@ const addDirToZip = (zip: JSZip, sourceDir: string, zipPrefix: string) => {
 
 const buildManifest = async (
   workspaceId: string,
-  workspacesRoot: string
+  workspacesRoot: string,
 ): Promise<ExportManifest> => {
   const metaPath = path.join(workspacesRoot, workspaceId, 'workspace.json');
   const info: ExportWorkspaceInfo = { id: workspaceId };
@@ -106,7 +106,7 @@ const buildManifest = async (
 
 export const createWorkspaceExportZip = async (
   workspaceId: string,
-  workspacesRoot = getWorkspacesRoot()
+  workspacesRoot = getWorkspacesRoot(),
 ): Promise<Buffer> => {
   await ensureDir(workspacesRoot);
   validateWorkspaceId(workspaceId);
@@ -123,7 +123,7 @@ export const createWorkspaceExportZip = async (
 
 export const importWorkspaceArchive = async (
   buffer: Buffer,
-  options: ImportOptions
+  options: ImportOptions,
 ): Promise<ImportResult> => {
   const workspacesRoot = options.workspacesRoot ?? getWorkspacesRoot();
   await ensureDir(workspacesRoot);
@@ -200,12 +200,12 @@ export const importWorkspaceArchive = async (
 
   if (!options.overwrite) {
     const conflicts = Array.from(workspaces.keys()).filter((id) =>
-      fs.existsSync(path.join(workspacesRoot, id))
+      fs.existsSync(path.join(workspacesRoot, id)),
     );
     if (conflicts.length > 0) {
       throw new WorkspaceImportError(
         `既存ワークスペースと競合しています: ${conflicts.join(', ')}`,
-        'conflict'
+        'conflict',
       );
     }
   }

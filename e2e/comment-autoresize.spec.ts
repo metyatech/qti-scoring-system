@@ -6,7 +6,6 @@ test.afterEach(async ({ page }) => {
   await cleanupTrackedWorkspaces(page.request);
 });
 
-
 test('comment textarea auto-resizes with content', async ({ page }) => {
   await withWorkspace(page, 'E2E Auto Resize', async () => {
     await page.getByText('設問ごと').waitFor();
@@ -17,7 +16,9 @@ test('comment textarea auto-resizes with content', async ({ page }) => {
     const initialHeight = await textarea.evaluate((el) => el.clientHeight);
     await textarea.fill('Line 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6');
 
-    await expect.poll(async () => textarea.evaluate((el) => el.clientHeight)).toBeGreaterThan(initialHeight);
+    await expect
+      .poll(async () => textarea.evaluate((el) => el.clientHeight))
+      .toBeGreaterThan(initialHeight);
   });
 });
 
@@ -25,7 +26,9 @@ test('item quick preview opens in item view', async ({ page }) => {
   await withWorkspace(page, 'E2E Item Preview', async () => {
     await page.getByRole('button', { name: '設問を開く' }).click();
     await expect(page.getByRole('heading', { name: '設問プレビュー' })).toBeVisible();
-    await expect(page.getByTestId('item-preview-body').getByText('Explain your answer.')).toBeVisible();
+    await expect(
+      page.getByTestId('item-preview-body').getByText('Explain your answer.'),
+    ).toBeVisible();
     await page.getByTestId('item-preview-overlay').click({ position: { x: 10, y: 10 } });
     await expect(page.getByRole('heading', { name: '設問プレビュー' })).toBeHidden();
   });
@@ -38,9 +41,9 @@ test('save feedback appears after scoring update', async ({ page }) => {
     const response = await saveResponse;
     expect(response.status()).toBe(200);
 
-    await expect(page.getByTestId('save-status-assessmentResult-1.xml-item-1-criterion-1')).toContainText(
-      '保存しました'
-    );
+    await expect(
+      page.getByTestId('save-status-assessmentResult-1.xml-item-1-criterion-1'),
+    ).toContainText('保存しました');
   });
 });
 
@@ -57,7 +60,9 @@ test('clearing a comment removes it without errors', async ({ page }) => {
 
     await page.reload();
     await expect(page.locator('textarea').first()).toHaveValue('');
-    await expect(page.getByTestId('save-status-assessmentResult-1.xml-item-1-comment')).toHaveCount(0);
+    await expect(page.getByTestId('save-status-assessmentResult-1.xml-item-1-comment')).toHaveCount(
+      0,
+    );
   });
 });
 
@@ -78,7 +83,9 @@ test('rubric changes persist after reload', async ({ page }) => {
 
     const reloadedCriterionOne = page.getByText('[1] Provides any answer').locator('..');
     const reloadedCriterionTwo = page.getByText('[2] Explains reasoning').locator('..');
-    await expect(reloadedCriterionOne.getByRole('button', { name: '〇' })).toHaveClass(/bg-green-600/);
+    await expect(reloadedCriterionOne.getByRole('button', { name: '〇' })).toHaveClass(
+      /bg-green-600/,
+    );
     await expect(reloadedCriterionTwo.getByRole('button', { name: '×' })).toHaveClass(/bg-red-600/);
   });
 });
@@ -111,13 +118,20 @@ test('export includes updated rubric and comment', async ({ page }) => {
     }
     const xml = await resultEntry.async('string');
     expect(xml).toMatch(/<outcomeVariable identifier="RUBRIC_1_MET"[\s\S]*?<value>true<\/value>/);
-    expect(xml).toMatch(/<outcomeVariable identifier="COMMENT"[\s\S]*?<value>Exported comment<\/value>/);
+    expect(xml).toMatch(
+      /<outcomeVariable identifier="COMMENT"[\s\S]*?<value>Exported comment<\/value>/,
+    );
   });
 });
 
 test('total score reflects rubric outcomes even when item score is stale', async ({ page }) => {
-  await withWorkspace(page, 'E2E Total Score', async () => {
-    await page.getByRole('button', { name: '受講者ごと' }).click();
-    await expect(page.getByText(/合計:\s*3\s*\/\s*3/)).toBeVisible();
-  }, 'assessmentResult-score-stale.xml');
+  await withWorkspace(
+    page,
+    'E2E Total Score',
+    async () => {
+      await page.getByRole('button', { name: '受講者ごと' }).click();
+      await expect(page.getByText(/合計:\s*3\s*\/\s*3/)).toBeVisible();
+    },
+    'assessmentResult-score-stale.xml',
+  );
 });

@@ -8,10 +8,7 @@ import { createReportZip } from '@/lib/reportZip';
 
 export const runtime = 'nodejs';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const workspace = await readWorkspace(id);
@@ -62,7 +59,7 @@ export async function GET(
     console.error('レポート ZIP 生成エラー:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'レポート ZIP の生成に失敗しました' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

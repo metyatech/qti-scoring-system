@@ -57,7 +57,7 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
         const relativePath = getRelativePath(file) || file.name;
         form.append('assessmentFiles', file, relativePath);
       });
-      resultFiles.forEach(file => form.append('results', file));
+      resultFiles.forEach((file) => form.append('results', file));
 
       const response = await fetch('/api/workspaces', {
         method: 'POST',
@@ -79,9 +79,7 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
   return (
     <div className="w-full max-w-2xl mx-auto p-6">
       <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          QTI 3.0 ワークスペースを作成
-        </h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">QTI 3.0 ワークスペースを作成</h2>
 
         <div className="space-y-4">
           <div>
@@ -100,7 +98,10 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
           </div>
 
           <div>
-            <label htmlFor="workspaceDescription" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="workspaceDescription"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               説明（任意）
             </label>
             <textarea
@@ -129,7 +130,11 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
             />
             <div className="text-xs text-gray-500 mt-1">
               選択中: {assessmentFiles.length}件 / assessment-test:{' '}
-              {assessmentTestCount === 1 ? '検出済み' : assessmentTestCount === 0 ? '未検出' : '複数検出'}
+              {assessmentTestCount === 1
+                ? '検出済み'
+                : assessmentTestCount === 0
+                  ? '未検出'
+                  : '複数検出'}
             </div>
             <div className="text-xs text-gray-500 mt-1">
               assessment-test.qti.xml と設問 XML を含む出力フォルダを選択してください。
@@ -150,7 +155,6 @@ export default function QtiUpload({ onWorkspaceCreated }: QtiUploadProps) {
             />
             <div className="text-xs text-gray-500 mt-1">選択中: {resultFiles.length}件</div>
           </div>
-
         </div>
 
         {error && (

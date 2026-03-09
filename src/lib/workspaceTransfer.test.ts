@@ -3,7 +3,11 @@ import path from 'path';
 import os from 'os';
 import JSZip from 'jszip';
 import { describe, it, expect } from 'vitest';
-import { createWorkspaceExportZip, importWorkspaceArchive, WorkspaceImportError } from '@/lib/workspaceTransfer';
+import {
+  createWorkspaceExportZip,
+  importWorkspaceArchive,
+  WorkspaceImportError,
+} from '@/lib/workspaceTransfer';
 
 const createWorkspaceFixture = async (root: string, id: string) => {
   const workspaceDir = path.join(root, id);
@@ -24,16 +28,16 @@ const createWorkspaceFixture = async (root: string, id: string) => {
         resultCount: 1,
       },
       null,
-      2
-    )
+      2,
+    ),
   );
   await fs.promises.writeFile(
     path.join(workspaceDir, 'assessment', 'assessment-test.qti.xml'),
-    '<qti-assessment-test/>'
+    '<qti-assessment-test/>',
   );
   await fs.promises.writeFile(
     path.join(workspaceDir, 'results', 'result-1.xml'),
-    '<assessmentResult/>'
+    '<assessmentResult/>',
   );
 };
 
@@ -48,19 +52,22 @@ describe('workspace transfer', () => {
     await createWorkspaceFixture(exportRoot, 'ws_test');
     const buffer = await createWorkspaceExportZip('ws_test', exportRoot);
 
-    const result = await importWorkspaceArchive(buffer, { overwrite: false, workspacesRoot: importRoot });
+    const result = await importWorkspaceArchive(buffer, {
+      overwrite: false,
+      workspacesRoot: importRoot,
+    });
     expect(result.workspaceIds).toEqual(['ws_test']);
 
     const importedJson = await fs.promises.readFile(
       path.join(importRoot, 'ws_test', 'workspace.json'),
-      'utf-8'
+      'utf-8',
     );
     const imported = JSON.parse(importedJson) as { name?: string };
     expect(imported.name).toBe('Test Workspace');
 
     const assessment = await fs.promises.readFile(
       path.join(importRoot, 'ws_test', 'assessment', 'assessment-test.qti.xml'),
-      'utf-8'
+      'utf-8',
     );
     expect(assessment).toContain('qti-assessment-test');
   });
@@ -71,7 +78,10 @@ describe('workspace transfer', () => {
     const buffer = await zip.generateAsync({ type: 'nodebuffer' });
 
     await expect(
-      importWorkspaceArchive(buffer, { overwrite: false, workspacesRoot: path.join(os.tmpdir(), 'import-invalid') })
+      importWorkspaceArchive(buffer, {
+        overwrite: false,
+        workspacesRoot: path.join(os.tmpdir(), 'import-invalid'),
+      }),
     ).rejects.toBeInstanceOf(WorkspaceImportError);
   });
 
@@ -88,7 +98,7 @@ describe('workspace transfer', () => {
     const buffer = await createWorkspaceExportZip('ws_conflict', exportRoot);
 
     await expect(
-      importWorkspaceArchive(buffer, { overwrite: false, workspacesRoot: importRoot })
+      importWorkspaceArchive(buffer, { overwrite: false, workspacesRoot: importRoot }),
     ).rejects.toBeInstanceOf(WorkspaceImportError);
   });
 
@@ -119,7 +129,10 @@ describe('workspace transfer', () => {
 
     const multiBuffer = await combined.generateAsync({ type: 'nodebuffer' });
     await expect(
-      importWorkspaceArchive(multiBuffer, { overwrite: false, workspacesRoot: path.join(tempRoot, 'import') })
+      importWorkspaceArchive(multiBuffer, {
+        overwrite: false,
+        workspacesRoot: path.join(tempRoot, 'import'),
+      }),
     ).rejects.toBeInstanceOf(WorkspaceImportError);
   });
 });

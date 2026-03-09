@@ -2,7 +2,7 @@ import hljs from 'highlight.js/lib/common';
 
 const resolveLanguage = (el: HTMLElement) => {
   const match = Array.from(el.classList).find(
-    (cls) => cls.startsWith('language-') || cls.startsWith('lang-')
+    (cls) => cls.startsWith('language-') || cls.startsWith('lang-'),
   );
   if (!match) return null;
   const language = match.split('-', 2)[1]?.trim().toLowerCase();
@@ -25,8 +25,8 @@ const highlightCodeBlock = (el: HTMLElement) => {
   const result = language
     ? hljs.highlight(source, { language, ignoreIllegals: true })
     : fallbackLanguage
-    ? hljs.highlight(source, { language: fallbackLanguage, ignoreIllegals: true })
-    : hljs.highlightAuto(source);
+      ? hljs.highlight(source, { language: fallbackLanguage, ignoreIllegals: true })
+      : hljs.highlightAuto(source);
   el.innerHTML = result.value;
   el.classList.add('hljs');
   const resolvedLanguage = appliedLanguage || result.language;
@@ -56,7 +56,7 @@ export type HighlightScheduleHandle = {
 
 export const scheduleHighlightCodeBlocks = (
   root: ParentNode,
-  options: HighlightSchedulerOptions = {}
+  options: HighlightSchedulerOptions = {},
 ): HighlightScheduleHandle => {
   const batchSize = options.batchSize ?? 24;
   const delayMs = options.delayMs ?? 0;

@@ -8,7 +8,7 @@ describe('rewriteHtmlImageSources', () => {
     const doc = new DOMParser().parseFromString(rewritten, 'text/html');
     const img = doc.querySelector('img');
     expect(img?.getAttribute('src')).toBe(
-      '/api/workspaces/ws_1/files?kind=assessment&name=items%2Fimages%2Fpic.png'
+      '/api/workspaces/ws_1/files?kind=assessment&name=items%2Fimages%2Fpic.png',
     );
   });
 
@@ -18,7 +18,7 @@ describe('rewriteHtmlImageSources', () => {
     const doc = new DOMParser().parseFromString(rewritten, 'text/html');
     const img = doc.querySelector('img');
     expect(img?.getAttribute('src')).toBe(
-      '/api/workspaces/ws_1/files?kind=assessment&name=items%2Fshared%2Fpic.png'
+      '/api/workspaces/ws_1/files?kind=assessment&name=items%2Fshared%2Fpic.png',
     );
   });
 
@@ -34,7 +34,7 @@ describe('rewriteHtmlImageSources', () => {
     expect(images[0]?.getAttribute('src')).toBe('https://example.com/a.png');
     expect(images[1]?.getAttribute('src')).toBe('data:image/png;base64,aaa');
     expect(images[2]?.getAttribute('src')).toBe(
-      '/api/workspaces/ws_1/files?kind=assessment&name=a.png'
+      '/api/workspaces/ws_1/files?kind=assessment&name=a.png',
     );
   });
 });

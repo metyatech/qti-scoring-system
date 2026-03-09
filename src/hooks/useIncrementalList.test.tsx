@@ -8,7 +8,9 @@ describe('useIncrementalList', () => {
   let root: Root;
 
   beforeEach(() => {
-    (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -21,10 +23,19 @@ describe('useIncrementalList', () => {
     });
     container.remove();
     vi.useRealTimers();
-    delete (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+    delete (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
+      .IS_REACT_ACT_ENVIRONMENT;
   });
 
-  const TestComponent = ({ items, batchSize = 2, delayMs = 5 }: { items: number[]; batchSize?: number; delayMs?: number }) => {
+  const TestComponent = ({
+    items,
+    batchSize = 2,
+    delayMs = 5,
+  }: {
+    items: number[];
+    batchSize?: number;
+    delayMs?: number;
+  }) => {
     const { visibleItems, isComplete } = useIncrementalList(items, { batchSize, delayMs });
     return (
       <div>

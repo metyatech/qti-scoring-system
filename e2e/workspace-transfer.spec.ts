@@ -12,7 +12,9 @@ test('workspace export can be imported from the home screen', async ({ page }) =
   const workspaceId = await createWorkspace(page, 'E2E Transfer');
   try {
     await page.goto(`/workspace/${workspaceId}`);
-    await expect(page.getByRole('button', { name: 'このワークスペースをエクスポート' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'このワークスペースをエクスポート' }),
+    ).toBeVisible();
     const exportResponse = await page.request.get(`/api/workspaces/${workspaceId}/export`);
     expect(exportResponse.status()).toBe(200);
 
@@ -27,7 +29,7 @@ test('workspace export can be imported from the home screen', async ({ page }) =
     await page.getByLabel('エクスポートZIPをインポート').setInputFiles(zipPath);
     const importResponse = page.waitForResponse(
       (response) =>
-        response.request().method() === 'POST' && response.url().includes('/api/workspaces/import')
+        response.request().method() === 'POST' && response.url().includes('/api/workspaces/import'),
     );
     await page.getByRole('button', { name: 'インポート実行' }).click();
     expect((await importResponse).status()).toBe(200);
@@ -37,7 +39,7 @@ test('workspace export can be imported from the home screen', async ({ page }) =
     const response = await page.request.get('/api/workspaces');
     const json = await response.json();
     const importedId = (json.workspaces as Array<{ id: string; name: string }>).find(
-      (workspace) => workspace.name === 'E2E Transfer'
+      (workspace) => workspace.name === 'E2E Transfer',
     )?.id;
     if (importedId) {
       await deleteWorkspace(page, importedId);

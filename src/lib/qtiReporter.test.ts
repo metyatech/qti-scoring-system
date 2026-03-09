@@ -26,7 +26,11 @@ const ITEM_XML = `<?xml version="1.0" encoding="UTF-8"?>
 </qti-assessment-item>
 `;
 
-const makeResultXml = (sourcedId: string, candidateName: string, score: number) => `<?xml version="1.0" encoding="UTF-8"?>
+const makeResultXml = (
+  sourcedId: string,
+  candidateName: string,
+  score: number,
+) => `<?xml version="1.0" encoding="UTF-8"?>
 <assessmentResult xmlns="http://www.imsglobal.org/xsd/imsqti_result_v3p0">
   <context sourcedId="${sourcedId}">
     <sessionIdentifier sourceID="candidateName" identifier="${candidateName}" />
@@ -93,7 +97,11 @@ describe('generateCsvReport', () => {
         version: '0.0.0',
         type: 'module',
       };
-      fs.writeFileSync(path.join(moduleRoot, 'package.json'), JSON.stringify(pkg, null, 2), 'utf-8');
+      fs.writeFileSync(
+        path.join(moduleRoot, 'package.json'),
+        JSON.stringify(pkg, null, 2),
+        'utf-8',
+      );
 
       const assessmentDir = path.join(root, 'assessment');
       const resultsDir = path.join(root, 'results');
@@ -110,7 +118,7 @@ describe('generateCsvReport', () => {
         generateCsvReport({
           assessmentTestPath,
           assessmentResultPaths: [resultPath],
-        })
+        }),
       ).rejects.toThrow('qti-reporter の CLI が見つかりません');
     } finally {
       process.chdir(prevCwd);
@@ -128,7 +136,7 @@ describe('generateCsvReport', () => {
       fs.writeFileSync(
         path.join(moduleRoot, 'package.json'),
         JSON.stringify({ name: 'qti-reporter', version: '0.0.0', type: 'module' }, null, 2),
-        'utf-8'
+        'utf-8',
       );
       const cliScript = `import fs from 'node:fs';
 import path from 'node:path';

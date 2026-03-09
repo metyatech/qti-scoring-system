@@ -9,7 +9,7 @@ test('contrast and boundary visibility checks pass on top page', async ({ browse
   for (const theme of THEMES) {
     const context = await browser.newContext({
       baseURL: 'http://127.0.0.1:3000',
-      colorScheme: theme
+      colorScheme: theme,
     });
 
     try {
@@ -36,13 +36,13 @@ test('contrast and boundary visibility checks pass on top page', async ({ browse
             red: parts[0],
             green: parts[1],
             blue: parts[2],
-            alpha: parts.length >= 4 && !Number.isNaN(parts[3]) ? parts[3] : 1
+            alpha: parts.length >= 4 && !Number.isNaN(parts[3]) ? parts[3] : 1,
           };
         };
 
         const blend = (
           fg: { red: number; green: number; blue: number; alpha: number },
-          bg: { red: number; green: number; blue: number; alpha: number }
+          bg: { red: number; green: number; blue: number; alpha: number },
         ) => {
           const alpha = fg.alpha + bg.alpha * (1 - fg.alpha);
           if (alpha <= 0) {
@@ -52,17 +52,18 @@ test('contrast and boundary visibility checks pass on top page', async ({ browse
             red: (fg.red * fg.alpha + bg.red * bg.alpha * (1 - fg.alpha)) / alpha,
             green: (fg.green * fg.alpha + bg.green * bg.alpha * (1 - fg.alpha)) / alpha,
             blue: (fg.blue * fg.alpha + bg.blue * bg.alpha * (1 - fg.alpha)) / alpha,
-            alpha
+            alpha,
           };
         };
 
-        const luminance = (color: { red: number; green: number; blue: number }) => (
-          0.2126 * toLinear(color.red) + 0.7152 * toLinear(color.green) + 0.0722 * toLinear(color.blue)
-        );
+        const luminance = (color: { red: number; green: number; blue: number }) =>
+          0.2126 * toLinear(color.red) +
+          0.7152 * toLinear(color.green) +
+          0.0722 * toLinear(color.blue);
 
         const contrast = (
           first: { red: number; green: number; blue: number },
-          second: { red: number; green: number; blue: number }
+          second: { red: number; green: number; blue: number },
         ) => {
           const l1 = luminance(first);
           const l2 = luminance(second);
@@ -71,7 +72,9 @@ test('contrast and boundary visibility checks pass on top page', async ({ browse
         };
 
         const rootBackground = (() => {
-          const root = parseColor(window.getComputedStyle(document.documentElement).backgroundColor);
+          const root = parseColor(
+            window.getComputedStyle(document.documentElement).backgroundColor,
+          );
           if (root && root.alpha > 0) {
             return root;
           }
@@ -132,7 +135,9 @@ test('contrast and boundary visibility checks pass on top page', async ({ browse
               const largeText = fontSize >= 18 || (fontSize >= 14 && fontWeight >= 700);
               const minRatio = largeText ? 3 : 4.5;
               if (ratio < minRatio) {
-                textIssues.push(`text ratio=${ratio.toFixed(2)} class=${String(element.className || '')}`);
+                textIssues.push(
+                  `text ratio=${ratio.toFixed(2)} class=${String(element.className || '')}`,
+                );
               }
             }
           }
@@ -141,20 +146,22 @@ test('contrast and boundary visibility checks pass on top page', async ({ browse
             Number.parseFloat(style.borderTopWidth || '0'),
             Number.parseFloat(style.borderRightWidth || '0'),
             Number.parseFloat(style.borderBottomWidth || '0'),
-            Number.parseFloat(style.borderLeftWidth || '0')
+            Number.parseFloat(style.borderLeftWidth || '0'),
           );
           const outlineWidth = Number.parseFloat(style.outlineWidth || '0');
-          const hasBoundary = borderWidth > 0 || (outlineWidth > 0 && style.outlineStyle !== 'none');
+          const hasBoundary =
+            borderWidth > 0 || (outlineWidth > 0 && style.outlineStyle !== 'none');
           if (hasBoundary && rect.width * rect.height >= 600) {
-            const boundaryColor = borderWidth > 0
-              ? parseColor(style.borderTopColor)
-              : parseColor(style.outlineColor);
+            const boundaryColor =
+              borderWidth > 0 ? parseColor(style.borderTopColor) : parseColor(style.outlineColor);
             if (boundaryColor) {
               const parentBg = resolveBackground(element.parentElement ?? element);
               const blendedBoundary = blend(boundaryColor, parentBg);
               const ratio = contrast(blendedBoundary, parentBg);
               if (ratio < 3) {
-                boundaryIssues.push(`boundary ratio=${ratio.toFixed(2)} class=${String(element.className || '')}`);
+                boundaryIssues.push(
+                  `boundary ratio=${ratio.toFixed(2)} class=${String(element.className || '')}`,
+                );
               }
             }
           }
