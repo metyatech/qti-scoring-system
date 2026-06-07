@@ -18,9 +18,14 @@
   "overrides": {
     "tar": ">=7.5.8",
     "ajv": "^6.14.0",
-    "minimatch": "^10.2.1"
+    "minimatch": "^10.2.1",
+    "postcss": ">=8.5.10"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "apply-to-qti-results": "github:metyatech/apply-to-qti-results#main",
     "fast-xml-parser": "^5.3.7",
     "highlight.js": "^11.11.1",
@@ -31,23 +36,19 @@
     "qti-xml-core": "github:metyatech/qti-xml-core",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "tsx": "^4.21.0"
+    "tailwindcss": "^4",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.1",
     "@eslint/eslintrc": "^3.3.3",
     "@playwright/test": "^1.58.0",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
     "eslint": "^9.39.2",
     "eslint-config-next": "16.1.6",
     "husky": "^9.1.7",
     "jsdom": "^27.4.0",
     "lint-staged": "^16.2.7",
-    "tailwindcss": "^4",
-    "typescript": "^5",
     "vitest": "^4.0.18"
   },
   "lint-staged": {
