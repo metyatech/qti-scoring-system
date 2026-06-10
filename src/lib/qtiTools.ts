@@ -5,6 +5,10 @@ import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
 
+type PackageJson = {
+  bin?: string | Record<string, string>;
+};
+
 const findPackageRoot = (packageName: string, startDir: string) => {
   let current = startDir;
   while (true) {
@@ -21,22 +25,20 @@ const findPackageRoot = (packageName: string, startDir: string) => {
   throw new Error('package が見つかりません: ' + packageName + ' (start: ' + startDir + ')');
 };
 
-const resolveToolsRoot = (startDir: string = process.cwd()) =>
-  findPackageRoot('apply-to-qti-results', startDir);
-
-export const resolveTsxCliPath = (startDir: string = process.cwd()) => {
-  const tsxRoot = findPackageRoot('tsx', startDir);
-  const pkgPath = path.join(tsxRoot, 'package.json');
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')) as {
-    bin?: string | Record<string, string>;
-  };
+const resolvePackageBinPath = (packageName: string, binName: string, startDir: string) => {
+  const packageRoot = findPackageRoot(packageName, startDir);
+  const pkgPath = path.join(packageRoot, 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')) as PackageJson;
   const bin =
-    typeof pkg.bin === 'string' ? pkg.bin : pkg.bin && 'tsx' in pkg.bin ? pkg.bin.tsx : undefined;
+    typeof pkg.bin === 'string' ? pkg.bin : pkg.bin && binName in pkg.bin ? pkg.bin[binName] : undefined;
   if (!bin) {
-    throw new Error('tsx の bin 設定が見つかりません');
+    throw new Error(`${packageName} の bin 設定が見つかりません: ${binName}`);
   }
-  return path.resolve(tsxRoot, bin);
+  return path.resolve(packageRoot, bin);
 };
+
+export const resolveApplyToQtiResultsCliPath = (startDir: string = process.cwd()) =>
+  resolvePackageBinPath('apply-to-qti-results', 'apply-to-qti-results', startDir);
 
 export const applyQtiResultsUpdate = async (params: {
   resultsPath: string;
@@ -44,22 +46,13 @@ export const applyQtiResultsUpdate = async (params: {
   scoringPath: string;
   preserveMet?: boolean;
 }) => {
-  const toolsRoot = resolveToolsRoot();
-  const tsxCli = resolveTsxCliPath();
-  const applyCli = path.join(toolsRoot, 'src', 'cli.ts');
+  const applyCli = resolveApplyToQtiResultsCliPath();
 
-  if (!fs.existsSync(toolsRoot)) {
-    throw new Error('apply-to-qti-results が見つかりません: ' + toolsRoot);
-  }
-  if (!fs.existsSync(tsxCli)) {
-    throw new Error('tsx CLI が見つかりません: ' + tsxCli);
-  }
   if (!fs.existsSync(applyCli)) {
     throw new Error('apply-to-qti-results CLI が見つかりません: ' + applyCli);
   }
 
   const args: string[] = [
-    tsxCli,
     applyCli,
     '--results',
     params.resultsPath,

@@ -3,26 +3,30 @@ import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 
-import { resolveTsxCliPath } from './qtiTools';
+import { resolveApplyToQtiResultsCliPath } from './qtiTools';
 
-describe('resolveTsxCliPath', () => {
-  it('resolves tsx CLI from the workspace node_modules', () => {
-    const cliPath = resolveTsxCliPath(process.cwd());
-    expect(cliPath).toContain(path.join('node_modules', 'tsx'));
+describe('resolveApplyToQtiResultsCliPath', () => {
+  it('resolves apply-to-qti-results CLI from the workspace node_modules bin metadata', () => {
+    const cliPath = resolveApplyToQtiResultsCliPath(process.cwd());
+    expect(cliPath).toContain(path.join('node_modules', 'apply-to-qti-results'));
     expect(fs.existsSync(cliPath)).toBe(true);
   });
 
-  it('falls back to local node_modules when module resolution fails', () => {
+  it('uses package bin metadata instead of assuming source files are installed', () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'qti-tools-'));
-    const tsxRoot = path.join(tempRoot, 'node_modules', 'tsx');
+    const toolsRoot = path.join(tempRoot, 'node_modules', 'apply-to-qti-results');
     try {
-      fs.mkdirSync(path.join(tsxRoot, 'dist'), { recursive: true });
-      const pkgPath = path.join(tsxRoot, 'package.json');
-      fs.writeFileSync(pkgPath, JSON.stringify({ bin: './dist/cli.mjs' }), 'utf-8');
-      fs.writeFileSync(path.join(tsxRoot, 'dist', 'cli.mjs'), '', 'utf-8');
+      fs.mkdirSync(path.join(toolsRoot, 'dist'), { recursive: true });
+      const pkgPath = path.join(toolsRoot, 'package.json');
+      fs.writeFileSync(
+        pkgPath,
+        JSON.stringify({ bin: { 'apply-to-qti-results': 'dist/cli.js' } }),
+        'utf-8'
+      );
+      fs.writeFileSync(path.join(toolsRoot, 'dist', 'cli.js'), '', 'utf-8');
 
-      const cliPath = resolveTsxCliPath(tempRoot);
-      expect(cliPath).toBe(path.join(tsxRoot, 'dist', 'cli.mjs'));
+      const cliPath = resolveApplyToQtiResultsCliPath(tempRoot);
+      expect(cliPath).toBe(path.join(toolsRoot, 'dist', 'cli.js'));
     } finally {
       fs.rmSync(tempRoot, { recursive: true, force: true });
     }
