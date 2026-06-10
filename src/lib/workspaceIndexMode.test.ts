@@ -159,4 +159,26 @@ describe('validateWorkspaceDirWithinRepo', () => {
       validateWorkspaceDirWithinRepo(repoRoot, 'courses/js/exams/mid/result/scoring-workspaces/x')
     ).toThrow();
   });
+
+  it('rejects paths whose realpath escapes the repo root through a symlink', async () => {
+    if (process.platform === 'win32') {
+      // Symlink creation typically requires elevated privileges on Windows.
+      return;
+    }
+    const fsPromises = await import('fs/promises');
+    const os = await import('os');
+    const outside = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'qti-outside-'));
+    const realRepo = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'qti-real-repo-'));
+    // Create the canonical layout under realRepo.
+    const insideRel = 'courses/js/exams/mid/result/scoring-workspace';
+    await fsPromises.mkdir(path.join(realRepo, insideRel), { recursive: true });
+    // Symlink: realRepo/courses -> outside, so resolving insideRel leaks.
+    await fsPromises.symlink(outside, path.join(realRepo, 'courses'));
+    try {
+      expect(() => validateWorkspaceDirWithinRepo(realRepo, insideRel)).toThrow();
+    } finally {
+      await fsPromises.rm(outside, { recursive: true, force: true });
+      await fsPromises.rm(realRepo, { recursive: true, force: true });
+    }
+  });
 });

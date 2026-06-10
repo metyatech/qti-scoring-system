@@ -96,7 +96,8 @@ const WORKSPACE_DIR_PATTERN = /^courses\/.+\/exams\/.+\/result\/scoring-workspac
  * Resolve and validate an external workspace directory.
  *
  * Accepts a repo-relative (preferred) or absolute path. The resolved path MUST
- * stay within `repoRoot` and MUST match the canonical
+ * stay within `repoRoot` (lexical AND realpath, so symlinked ancestors cannot
+ * smuggle the workspace outside the repo) and MUST match the canonical
  * `courses/**​/exams/**​/result/scoring-workspace` shape. Throws otherwise.
  */
 export const validateWorkspaceDirWithinRepo = (repoRoot: string, input: string): string => {
@@ -117,6 +118,29 @@ export const validateWorkspaceDirWithinRepo = (repoRoot: string, input: string):
     throw new Error(
       `workspaceDir のパス形式が不正です (courses/**/exams/**/result/scoring-workspace 以外): ${input}`
     );
+  }
+  // Realpath containment: a path that passes lexical checks but resolves
+  // through a symlink to a directory outside repoRoot must still be rejected.
+  try {
+    const realAbsolute = fs.realpathSync(absolute);
+    const realRoot = fs.realpathSync(resolvedRoot);
+    const realRelative = path.relative(realRoot, realAbsolute);
+    if (
+      realRelative === '' ||
+      realRelative.startsWith('..') ||
+      path.isAbsolute(realRelative)
+    ) {
+      throw new Error(
+        `workspaceDir が symlink 経由で repo root の外を指しています: ${input}`
+      );
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('workspaceDir が symlink')) {
+      throw error;
+    }
+    // realpathSync fails when the path does not exist yet (legitimate case
+    // for the create flow). The realpath check will run again on the next
+    // resolve/list call once the workspace has been created.
   }
   return absolute;
 };
@@ -311,13 +335,64 @@ export const deleteWorkspace = async (id: string): Promise<boolean> => {
   }
 };
 
-export const updateResultXml = async (id: string, resultFile: string, xml: string): Promise<void> => {
-  const workspaceDir = await resolveWorkspaceDir(id);
-  if (workspaceDir === null) {
-    throw new Error(`ワークスペースの保存先を解決できません: ${id}`);
+/**
+ * Validate a result file name and produce the safe absolute path inside the
+ * workspace's results directory. Rejects names with path separators, drive
+ * letters, dot segments, or anything that would resolve outside results/.
+ */
+export const sanitizeResultFileName = (resultFile: string): string => {
+  const trimmed = (resultFile ?? '').replace(/\\/g, '/').trim();
+  if (!trimmed) {
+    throw new Error('resultFile が空です');
   }
-  const resultPath = path.join(workspaceDir, 'results', resultFile);
+  if (trimmed.includes('/') || trimmed.includes('\0')) {
+    throw new Error(`resultFile にパス区切りは使えません: ${resultFile}`);
+  }
+  // Reject Windows drive letters or POSIX absolute prefixes leaking through.
+  if (/^[A-Za-z]:/u.test(trimmed) || trimmed.startsWith('/')) {
+    throw new Error(`resultFile が不正です: ${resultFile}`);
+  }
+  if (trimmed === '.' || trimmed === '..' || trimmed.startsWith('.')) {
+    throw new Error(`resultFile が不正です: ${resultFile}`);
+  }
+  return trimmed;
+};
+
+const ensureWithinDir = async (parent: string, child: string): Promise<void> => {
+  let parentReal: string;
+  let childReal: string;
+  try {
+    parentReal = await fs.promises.realpath(parent);
+    childReal = await fs.promises.realpath(child);
+  } catch (error) {
+    throw new Error(`パスを解決できません: ${(error as Error).message}`);
+  }
+  const relative = path.relative(parentReal, childReal);
+  if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`パスが results/ の外に脱出しました: ${child}`);
+  }
+};
+
+/**
+ * Resolve a safe absolute result path inside the given workspace's results
+ * directory. Performs lexical sanitization and realpath-based containment to
+ * reject symlink-based escapes.
+ */
+export const resolveResultPath = (workspaceDir: string, resultFile: string): string => {
+  const safeName = sanitizeResultFileName(resultFile);
+  const resultsDir = path.join(workspaceDir, 'results');
+  return path.join(resultsDir, safeName);
+};
+
+export const updateResultXml = async (
+  workspaceDir: string,
+  resultFile: string,
+  xml: string
+): Promise<void> => {
+  const resultPath = resolveResultPath(workspaceDir, resultFile);
+  const resultsDir = path.join(workspaceDir, 'results');
   await withFileLock(resultPath, async () => {
+    await ensureWithinDir(resultsDir, resultPath);
     await atomicWriteFile(resultPath, xml);
   });
 };

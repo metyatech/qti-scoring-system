@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
 import { QtiResultUpdateRequest } from '@/types/qti';
-import { readWorkspace, resolveWorkspaceDir, updateResultXml } from '@/lib/workspace';
+import {
+  readWorkspace,
+  resolveWorkspaceDir,
+  resolveResultPath,
+  sanitizeResultFileName,
+  updateResultXml,
+} from '@/lib/workspace';
 import { applyQtiResultsUpdate } from '@/lib/qtiTools';
 
 export const runtime = 'nodejs';
@@ -29,8 +35,32 @@ export async function PUT(
     if (!workspaceDir) {
       return NextResponse.json({ error: 'ワークスペースが見つかりません' }, { status: 404 });
     }
-    const resultPath = path.join(workspaceDir, 'results', body.resultFile);
-    if (!fs.existsSync(resultPath)) {
+
+    // Reject path traversal / drive letters / absolute paths up front so the
+    // requested resultFile can never escape the results/ directory.
+    let safeResultName: string;
+    try {
+      safeResultName = sanitizeResultFileName(body.resultFile);
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'resultFile が不正です' },
+        { status: 400 }
+      );
+    }
+    if (!workspace.resultFiles.includes(safeResultName)) {
+      return NextResponse.json(
+        { error: `resultFile がこのワークスペースに登録されていません: ${body.resultFile}` },
+        { status: 400 }
+      );
+    }
+    const resultPath = resolveResultPath(workspaceDir, safeResultName);
+    let resultStat: fs.Stats;
+    try {
+      resultStat = await fs.promises.stat(resultPath);
+    } catch {
+      return NextResponse.json({ error: '結果ファイルが見つかりません' }, { status: 404 });
+    }
+    if (!resultStat.isFile()) {
       return NextResponse.json({ error: '結果ファイルが見つかりません' }, { status: 404 });
     }
 
@@ -55,7 +85,7 @@ export async function PUT(
         scoringPath: tmpPath,
         preserveMet: body.preserveMet,
       });
-      await updateResultXml(id, body.resultFile, updatedXml);
+      await updateResultXml(workspaceDir, safeResultName, updatedXml);
     } finally {
       try { await fs.promises.unlink(tmpPath); } catch { /* ignore */ }
       try { await fs.promises.unlink(tmpResultsPath); } catch { /* ignore */ }
