@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { importWorkspaceArchive, WorkspaceImportError } from '@/lib/workspaceTransfer';
+import { getWorkspaceMode } from '@/lib/workspace';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
+    if (getWorkspaceMode() === 'index') {
+      return NextResponse.json(
+        { error: 'index モードではワークスペースのインポートは未対応です' },
+        { status: 400 }
+      );
+    }
     const form = await request.formData();
     const archive = form.get('archive');
     if (!(archive instanceof File)) {

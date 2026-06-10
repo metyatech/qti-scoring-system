@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
 import { QtiResultUpdateRequest } from '@/types/qti';
-import { readWorkspace, getWorkspaceDir, updateResultXml } from '@/lib/workspace';
+import { readWorkspace, resolveWorkspaceDir, updateResultXml } from '@/lib/workspace';
 import { applyQtiResultsUpdate } from '@/lib/qtiTools';
 
 export const runtime = 'nodejs';
@@ -25,7 +25,10 @@ export async function PUT(
       return NextResponse.json({ error: 'ワークスペースが見つかりません' }, { status: 404 });
     }
 
-    const workspaceDir = getWorkspaceDir(id);
+    const workspaceDir = await resolveWorkspaceDir(id);
+    if (!workspaceDir) {
+      return NextResponse.json({ error: 'ワークスペースが見つかりません' }, { status: 404 });
+    }
     const resultPath = path.join(workspaceDir, 'results', body.resultFile);
     if (!fs.existsSync(resultPath)) {
       return NextResponse.json({ error: '結果ファイルが見つかりません' }, { status: 404 });

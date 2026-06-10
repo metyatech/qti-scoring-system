@@ -46,7 +46,7 @@ describe('workspace transfer', () => {
     await fs.promises.mkdir(importRoot, { recursive: true });
 
     await createWorkspaceFixture(exportRoot, 'ws_test');
-    const buffer = await createWorkspaceExportZip('ws_test', exportRoot);
+    const buffer = await createWorkspaceExportZip('ws_test', path.join(exportRoot, 'ws_test'));
 
     const result = await importWorkspaceArchive(buffer, { overwrite: false, workspacesRoot: importRoot });
     expect(result.workspaceIds).toEqual(['ws_test']);
@@ -85,7 +85,7 @@ describe('workspace transfer', () => {
     await createWorkspaceFixture(exportRoot, 'ws_conflict');
     await createWorkspaceFixture(importRoot, 'ws_conflict');
 
-    const buffer = await createWorkspaceExportZip('ws_conflict', exportRoot);
+    const buffer = await createWorkspaceExportZip('ws_conflict', path.join(exportRoot, 'ws_conflict'));
 
     await expect(
       importWorkspaceArchive(buffer, { overwrite: false, workspacesRoot: importRoot })
@@ -99,9 +99,9 @@ describe('workspace transfer', () => {
     await createWorkspaceFixture(exportRoot, 'ws_one');
     await createWorkspaceFixture(exportRoot, 'ws_two');
 
-    const firstBuffer = await createWorkspaceExportZip('ws_one', exportRoot);
+    const firstBuffer = await createWorkspaceExportZip('ws_one', path.join(exportRoot, 'ws_one'));
     const firstZip = await JSZip.loadAsync(firstBuffer);
-    const secondBuffer = await createWorkspaceExportZip('ws_two', exportRoot);
+    const secondBuffer = await createWorkspaceExportZip('ws_two', path.join(exportRoot, 'ws_two'));
     const secondZip = await JSZip.loadAsync(secondBuffer);
 
     const combined = new JSZip();

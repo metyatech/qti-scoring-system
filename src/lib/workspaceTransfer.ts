@@ -83,9 +83,9 @@ const addDirToZip = (zip: JSZip, sourceDir: string, zipPrefix: string) => {
 
 const buildManifest = async (
   workspaceId: string,
-  workspacesRoot: string
+  workspaceDir: string
 ): Promise<ExportManifest> => {
-  const metaPath = path.join(workspacesRoot, workspaceId, 'workspace.json');
+  const metaPath = path.join(workspaceDir, 'workspace.json');
   const info: ExportWorkspaceInfo = { id: workspaceId };
   try {
     const content = await fs.promises.readFile(metaPath, 'utf-8');
@@ -106,17 +106,15 @@ const buildManifest = async (
 
 export const createWorkspaceExportZip = async (
   workspaceId: string,
-  workspacesRoot = getWorkspacesRoot()
+  workspaceDir: string
 ): Promise<Buffer> => {
-  await ensureDir(workspacesRoot);
   validateWorkspaceId(workspaceId);
-  const workspaceDir = path.join(workspacesRoot, workspaceId);
   if (!fs.existsSync(workspaceDir)) {
     throw new WorkspaceImportError(`ワークスペースが見つかりません: ${workspaceId}`);
   }
   const zip = new JSZip();
   addDirToZip(zip, workspaceDir, path.posix.join(EXPORT_ROOT, workspaceId));
-  const manifest = await buildManifest(workspaceId, workspacesRoot);
+  const manifest = await buildManifest(workspaceId, workspaceDir);
   zip.file(EXPORT_MANIFEST, JSON.stringify(manifest, null, 2));
   return await zip.generateAsync({ type: 'nodebuffer' });
 };

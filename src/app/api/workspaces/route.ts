@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
 import {
-  ensureWorkspaceSubdirs,
+  ensureWorkspaceSubdirsAt,
+  getWorkspaceIndexConfig,
+  getWorkspaceMode,
+  getWorkspacesRoot,
   sanitizeFileName,
   sanitizeRelativePath,
-  writeWorkspace,
+  validateWorkspaceDirWithinRepo,
+  writeWorkspaceMetaAt,
   listWorkspaces,
 } from '@/lib/workspace';
 import { validateAssessmentConsistency } from '@/lib/qtiValidation';
@@ -120,8 +124,67 @@ export async function POST(request: NextRequest) {
         }
         const itemFiles = validation.itemRefs?.map((ref) => ref.resolvedHref) ?? [];
 
-        const workspaceId = generateWorkspaceId();
-        const workspaceDir = await ensureWorkspaceSubdirs(workspaceId);
+        let workspaceId: string;
+        let workspaceDir: string;
+        let assessmentDirRel: string | undefined;
+
+        if (getWorkspaceMode() === 'index') {
+            const indexConfig = getWorkspaceIndexConfig()!;
+            workspaceId = String(form.get('workspaceId') ?? '').trim();
+            const workspaceDirInput = String(form.get('workspaceDir') ?? '').trim();
+            assessmentDirRel = String(form.get('assessmentDir') ?? '').trim() || undefined;
+            if (!workspaceId || !workspaceDirInput) {
+                return NextResponse.json(
+                    { error: 'index モードでは workspaceId と workspaceDir が必要です' },
+                    { status: 400 }
+                );
+            }
+            if (!/^[A-Za-z0-9_-]+$/.test(workspaceId)) {
+                return NextResponse.json(
+                    { error: `workspaceId が不正です: ${workspaceId}` },
+                    { status: 400 }
+                );
+            }
+            try {
+                workspaceDir = validateWorkspaceDirWithinRepo(indexConfig.repoRoot, workspaceDirInput);
+            } catch (error) {
+                return NextResponse.json(
+                    { error: error instanceof Error ? error.message : 'workspaceDir が不正です' },
+                    { status: 400 }
+                );
+            }
+            // Never overwrite an existing, possibly human-edited workspace.
+            const existingMetaPath = path.join(workspaceDir, 'workspace.json');
+            if (fs.existsSync(existingMetaPath)) {
+                try {
+                    const existing = JSON.parse(
+                        await fs.promises.readFile(existingMetaPath, 'utf-8')
+                    ) as QtiWorkspace;
+                    return NextResponse.json({
+                        success: true,
+                        reused: true,
+                        workspace: {
+                            id: existing.id,
+                            name: existing.name,
+                            description: existing.description,
+                            createdAt: existing.createdAt,
+                            itemCount: existing.itemCount,
+                            resultCount: existing.resultCount,
+                        },
+                    });
+                } catch {
+                    return NextResponse.json(
+                        { error: `既存の workspace.json を読み取れません: ${existingMetaPath}` },
+                        { status: 409 }
+                    );
+                }
+            }
+        } else {
+            workspaceId = generateWorkspaceId();
+            workspaceDir = path.join(getWorkspacesRoot(), workspaceId);
+        }
+
+        await ensureWorkspaceSubdirsAt(workspaceDir);
 
         for (const entry of assessmentEntries) {
             const target = path.join(workspaceDir, 'assessment', entry.safePath);
@@ -148,9 +211,10 @@ export async function POST(request: NextRequest) {
             resultFiles,
             itemCount: itemFiles.length,
             resultCount: resultFiles.length,
+            ...(assessmentDirRel ? { assessmentDir: assessmentDirRel } : {}),
         };
 
-        await writeWorkspace(workspace);
+        await writeWorkspaceMetaAt(workspaceDir, workspace);
 
         return NextResponse.json({
             success: true,

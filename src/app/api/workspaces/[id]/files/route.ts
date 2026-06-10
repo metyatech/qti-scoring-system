@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { getWorkspaceDir, sanitizeFileName, sanitizeRelativePath } from '@/lib/workspace';
+import { resolveWorkspaceDir, sanitizeFileName, sanitizeRelativePath } from '@/lib/workspace';
 import { buildContentDisposition } from '@/lib/httpHeaders';
 
 export const runtime = 'nodejs';
 
-const resolveFilePath = (id: string, kind: string, safeRelPath: string) => {
-  const baseDir = getWorkspaceDir(id);
+const resolveFilePath = (baseDir: string, kind: string, safeRelPath: string) => {
   if (kind === 'assessment') return path.join(baseDir, 'assessment', safeRelPath);
   if (kind === 'items') return path.join(baseDir, 'items', safeRelPath);
   if (kind === 'results') return path.join(baseDir, 'results', safeRelPath);
@@ -50,7 +49,11 @@ export async function GET(
       return NextResponse.json({ error: error instanceof Error ? error.message : 'name が不正です' }, { status: 400 });
     }
 
-    const filePath = resolveFilePath(id, kind, safeRelPath);
+    const baseDir = await resolveWorkspaceDir(id);
+    if (!baseDir) {
+      return NextResponse.json({ error: 'ワークスペースが見つかりません' }, { status: 404 });
+    }
+    const filePath = resolveFilePath(baseDir, kind, safeRelPath);
     if (!filePath || !fs.existsSync(filePath)) {
       return NextResponse.json({ error: 'ファイルが見つかりません' }, { status: 404 });
     }

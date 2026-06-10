@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { readWorkspace, getWorkspaceDir, sanitizeFileName } from '@/lib/workspace';
+import { readWorkspace, resolveWorkspaceDir, sanitizeFileName } from '@/lib/workspace';
 import { buildContentDisposition } from '@/lib/httpHeaders';
 import { generateReportOutput } from '@/lib/qtiReporter';
 import { createReportZip } from '@/lib/reportZip';
@@ -22,7 +22,10 @@ export async function GET(
       return NextResponse.json({ error: 'assessmentTest が見つかりません' }, { status: 400 });
     }
 
-    const workspaceDir = getWorkspaceDir(id);
+    const workspaceDir = await resolveWorkspaceDir(id);
+    if (!workspaceDir) {
+      return NextResponse.json({ error: 'ワークスペースが見つかりません' }, { status: 404 });
+    }
     const assessmentTestPath = path.join(workspaceDir, 'assessment', workspace.assessmentTestFile);
     if (!fs.existsSync(assessmentTestPath)) {
       return NextResponse.json({ error: 'assessmentTest が見つかりません' }, { status: 400 });

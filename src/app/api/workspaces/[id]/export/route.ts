@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createWorkspaceExportZip } from '@/lib/workspaceTransfer';
 import { buildContentDisposition } from '@/lib/httpHeaders';
-import { readWorkspace, sanitizeFileName } from '@/lib/workspace';
+import { readWorkspace, resolveWorkspaceDir, sanitizeFileName } from '@/lib/workspace';
 
 export const runtime = 'nodejs';
 
@@ -22,7 +22,11 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     if (!workspace) {
       return NextResponse.json({ error: 'ワークスペースが見つかりません' }, { status: 404 });
     }
-    const buffer = await createWorkspaceExportZip(workspaceId);
+    const workspaceDir = await resolveWorkspaceDir(workspaceId);
+    if (!workspaceDir) {
+      return NextResponse.json({ error: 'ワークスペースが見つかりません' }, { status: 404 });
+    }
+    const buffer = await createWorkspaceExportZip(workspaceId, workspaceDir);
     const body = new Uint8Array(buffer);
     const fileName = buildExportFileName(workspace.name);
     return new NextResponse(body, {

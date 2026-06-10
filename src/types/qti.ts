@@ -9,6 +9,11 @@ export interface QtiWorkspace {
   resultFiles: string[];
   itemCount: number;
   resultCount: number;
+  /**
+   * Repo-relative POSIX path of the source assessment directory (index mode only).
+   * Present when the workspace is stored in an external course-exams checkout.
+   */
+  assessmentDir?: string;
 }
 
 export interface QtiWorkspaceSummary {
