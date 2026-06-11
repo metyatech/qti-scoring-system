@@ -18,6 +18,7 @@ const tsPaths: Record<string, readonly string[]> = tsconfig.compilerOptions?.pat
 const tsBaseUrl: string = tsconfig.compilerOptions?.baseUrl ?? "./";
 
 const nextConfig: NextConfig = {
+  transpilePackages: ["qti-scoring-system"],
   // Next.js 16 enables Turbopack by default. An empty `turbopack` config
   // suppresses the "this build is using Turbopack with a webpack config"
   // error and lets the explicit `webpack` config below take over when the
