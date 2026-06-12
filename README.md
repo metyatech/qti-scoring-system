@@ -99,8 +99,12 @@ frontend can reconcile its optimistic state. The response shape is:
 }
 ```
 
-`testScore` is the sum of the per-item `SCORE` values in the saved file.
-If the saved file cannot be parsed, the endpoint returns a 500 error.
+`testScore` is the whole-test total, not just the updated items. It uses the
+authoritative `testResult/SCORE` from the saved file when present, and otherwise
+falls back to summing the `SCORE` of every `itemResult`. It is never summed over
+only the updated identifiers, so updating one item in a multi-item test still
+reports the full test score. If the saved file cannot be parsed, the endpoint
+returns a 500 error.
 
 ## External Tools
 - Results XML updates use `apply-to-qti-results`.

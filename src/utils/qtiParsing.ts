@@ -37,6 +37,7 @@ export interface QtiResult {
   itemResults: Record<string, QtiItemResult>;
 }
 
+import { XMLParser } from 'fast-xml-parser';
 import { renderQtiItemForScoring } from 'qti-html-renderer';
 import {
   parseAssessmentTestXml as parseAssessmentTestXmlCore,
@@ -44,6 +45,57 @@ import {
   resolveAssessmentHref as resolveAssessmentHrefCore,
   type AssessmentItemRef,
 } from 'qti-xml-core';
+
+const testResultScoreParser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '@_',
+  parseTagValue: true,
+  parseAttributeValue: false,
+});
+
+const readOutcomeValueText = (value: unknown): string | null => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    const text = (value as Record<string, unknown>)['#text'];
+    if (text === null || text === undefined) return null;
+    return String(text);
+  }
+  return null;
+};
+
+/**
+ * Extract the whole-test SCORE from the `testResult` element of a Results
+ * Reporting XML document. Returns `null` when the document has no parseable
+ * `testResult/SCORE` outcome. This is the authoritative test total written by
+ * `apply-to-qti-results`; callers should prefer it over summing item scores.
+ */
+export const extractTestResultScore = (xml: string): number | null => {
+  let parsed: unknown;
+  try {
+    parsed = testResultScoreParser.parse(xml);
+  } catch {
+    return null;
+  }
+  const assessmentResult = (parsed as Record<string, unknown> | undefined)?.assessmentResult as
+    | Record<string, unknown>
+    | undefined;
+  const testResult = assessmentResult?.testResult as Record<string, unknown> | undefined;
+  if (!testResult) return null;
+  const outcomes = testResult.outcomeVariable;
+  const outcomeList = Array.isArray(outcomes) ? outcomes : outcomes ? [outcomes] : [];
+  for (const outcome of outcomeList) {
+    if (!outcome || typeof outcome !== 'object') continue;
+    const record = outcome as Record<string, unknown>;
+    if (record['@_identifier'] !== 'SCORE') continue;
+    const text = readOutcomeValueText(record.value);
+    if (text === null || text.trim() === '') continue;
+    const numeric = Number(text);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+  return null;
+};
 
 export interface RemapResult {
   mappedItemResults: Record<string, QtiItemResult>;

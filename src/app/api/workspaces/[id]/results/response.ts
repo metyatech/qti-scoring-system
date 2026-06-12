@@ -1,5 +1,5 @@
-import { parseQtiResultsXml } from "@/utils/qtiParsing";
-import type { QtiItemResult } from "@/utils/qtiParsing";
+import { extractTestResultScore, parseQtiResultsXml } from "@/utils/qtiParsing";
+import type { QtiItemResult, QtiResult } from "@/utils/qtiParsing";
 
 export interface ResultUpdateItem {
   identifier: string;
@@ -24,9 +24,13 @@ export interface BuildResultUpdateResponseInput {
  * Build the JSON body for the PUT /results route by re-parsing the saved
  * Results Reporting XML. Returns the rubricOutcomes / score / comment that the
  * server actually wrote, so the frontend can replace its optimistic state
- * with the ground truth. `testScore` is computed by summing the per-item
- * SCORE values (matching how the apply-to-qti-results CLI keeps the test
- * total in sync).
+ * with the ground truth.
+ *
+ * `testScore` is the whole-test total, not just the updated items: it prefers
+ * the authoritative `testResult/SCORE` written by apply-to-qti-results and
+ * falls back to summing the SCORE of *every* itemResult in the saved file. It
+ * is never summed over only the requested identifiers, so updating one item in
+ * a multi-item test still reports the full test score.
  *
  * Throws if the saved XML is unparsable; the caller should turn that into a
  * 500 response. The helper itself never returns a "failed" shape — it is the
@@ -61,14 +65,25 @@ export const buildResultUpdateResponse = ({
     });
   }
 
-  const itemScores = items
-    .map((entry) => entry.score)
-    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
-  const testScore = itemScores.length > 0 ? itemScores.reduce((sum, value) => sum + value, 0) : null;
-
   return {
     success: true,
     items,
-    testScore,
+    testScore: computeTestScore(savedXml, result),
   };
+};
+
+/**
+ * Resolve the whole-test score from the saved Results Reporting XML. Prefers
+ * the authoritative `testResult/SCORE`; when that outcome is absent, sums the
+ * SCORE of every itemResult in the document (not just the requested ones).
+ */
+const computeTestScore = (savedXml: string, result: QtiResult): number | null => {
+  const testResultScore = extractTestResultScore(savedXml);
+  if (testResultScore !== null) {
+    return testResultScore;
+  }
+  const itemScores = Object.values(result.itemResults)
+    .map((itemResult) => itemResult.score)
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  return itemScores.length > 0 ? itemScores.reduce((sum, value) => sum + value, 0) : null;
 };
