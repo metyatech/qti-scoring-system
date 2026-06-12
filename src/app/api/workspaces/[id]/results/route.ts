@@ -10,6 +10,7 @@ import {
   updateResultXml,
 } from '@/lib/workspace';
 import { applyQtiResultsUpdate } from '@/lib/qtiTools';
+import { buildResultUpdateResponse } from './response';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -86,12 +87,22 @@ export async function PUT(
         preserveMet: body.preserveMet,
       });
       await updateResultXml(workspaceDir, safeResultName, updatedXml);
+
+      // Re-read the file we just persisted so the response reflects the
+      // ground truth — apply-to-qti-results may have ignored the criteria
+      // payload for auto-scored items (e.g. choice) and kept the previous
+      // values.
+      const savedXml = await fs.promises.readFile(resultPath, 'utf-8');
+      const responseBody = buildResultUpdateResponse({
+        savedXml,
+        fileName: safeResultName,
+        requestedIdentifiers: body.items.map((item) => item.identifier),
+      });
+      return NextResponse.json(responseBody);
     } finally {
       try { await fs.promises.unlink(tmpPath); } catch { /* ignore */ }
       try { await fs.promises.unlink(tmpResultsPath); } catch { /* ignore */ }
     }
-
-    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('結果更新エラー:', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : 'サーバーエラー' }, { status: 500 });

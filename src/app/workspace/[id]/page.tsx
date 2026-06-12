@@ -8,8 +8,10 @@ import { applyResponsesToPromptHtml } from "@/utils/qtiBlankResponses";
 import ExplanationPanel from "@/components/ExplanationPanel";
 import ReportDownloadButton from "@/components/ReportDownloadButton";
 import AutoResizeTextarea from "@/components/AutoResizeTextarea";
+import RubricScoringControl from "@/components/RubricScoringControl";
 import {
   QtiItem,
+  QtiItemResult,
   QtiResult,
   parseAssessmentTestXml,
   parseQtiItemXml,
@@ -289,35 +291,92 @@ export default function WorkspacePage() {
     const currentResult = results.find((r) => r.fileName === resultFile);
     const currentOutcomes = currentResult?.itemResults[itemId]?.rubricOutcomes ?? {};
     const criteria = buildCriteriaUpdate(item.rubric, currentOutcomes, criterionIndex, value);
-    await fetch(`/api/workspaces/${id}/results`, {
+    const res = await fetch(`/api/workspaces/${id}/results`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         resultFile,
         items: [{ identifier: itemId, criteria }],
       }),
-    }).then(async (res) => {
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "採点結果の更新に失敗しました");
-      }
     });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || "採点結果の更新に失敗しました");
+    }
+    const body = (await res.json().catch(() => null)) as
+      | {
+          items?: Array<{
+            identifier: string;
+            rubricOutcomes: Record<number, boolean>;
+            score: number | null;
+            comment: string | null;
+          }>;
+        }
+      | null;
+    return body;
   };
 
   const updateComment = async (resultFile: string, itemId: string, comment: string) => {
-    await fetch(`/api/workspaces/${id}/results`, {
+    const res = await fetch(`/api/workspaces/${id}/results`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         resultFile,
         items: [{ identifier: itemId, comment }],
       }),
-    }).then(async (res) => {
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "コメントの更新に失敗しました");
-      }
     });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || "コメントの更新に失敗しました");
+    }
+    return (await res.json().catch(() => null)) as
+      | {
+          items?: Array<{
+            identifier: string;
+            rubricOutcomes: Record<number, boolean>;
+            score: number | null;
+            comment: string | null;
+          }>;
+        }
+      | null;
+  };
+
+  /**
+   * Replace the optimistic local state for a single result file with the
+   * server-confirmed values. Apply-to-qti-results may have rejected the
+   * criteria for auto-scored items (e.g. choice) and kept the previous
+   * rubric outcomes; this is the only place we trust to mirror that into
+   * the React state.
+   */
+  const reconcileResultsFromServer = (
+    resultFile: string,
+    items: Array<{
+      identifier: string;
+      rubricOutcomes: Record<number, boolean>;
+      score: number | null;
+      comment: string | null;
+    }>
+  ) => {
+    setResults((prev) =>
+      prev.map((res) => {
+        if (res.fileName !== resultFile) return res;
+        const nextItemResults: Record<string, QtiItemResult> = { ...res.itemResults };
+        for (const updated of items) {
+          const existing = nextItemResults[updated.identifier] ?? {
+            resultIdentifier: updated.identifier,
+            response: null,
+            rubricOutcomes: {},
+          };
+          nextItemResults[updated.identifier] = {
+            ...existing,
+            rubricOutcomes: { ...updated.rubricOutcomes },
+            score: updated.score ?? undefined,
+            comment: updated.comment ?? undefined,
+          };
+        }
+        return { ...res, itemResults: nextItemResults };
+      })
+    );
   };
 
   const updateRubricOutcome = async (
@@ -354,7 +413,10 @@ export default function WorkspacePage() {
     );
 
     try {
-      await updateCriteria(resultFile, itemId, criterionIndex, value);
+      const response = await updateCriteria(resultFile, itemId, criterionIndex, value);
+      if (response?.items && response.items.length > 0) {
+        reconcileResultsFromServer(resultFile, response.items);
+      }
       finishSaveFeedback(saveKey, "saved");
     } catch (err) {
       setResults(prevResults);
@@ -374,7 +436,10 @@ export default function WorkspacePage() {
     setResults((prev) => updateItemComment(prev, resultFile, itemId, comment));
 
     try {
-      await updateComment(resultFile, itemId, comment);
+      const response = await updateComment(resultFile, itemId, comment);
+      if (response?.items && response.items.length > 0) {
+        reconcileResultsFromServer(resultFile, response.items);
+      }
       finishSaveFeedback(saveKey, "saved");
     } catch (err) {
       setResults(prevResults);
@@ -647,34 +712,15 @@ export default function WorkspacePage() {
                           );
                           const criterionStatus = saveStatusByKey[criterionKey];
                           return (
-                            <div key={criterion.index} className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleToggleCriterion(item.identifier, criterion.index, true)}
-                                className={`px-2 py-1 rounded text-xs border ${value === true ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-600 border-gray-300"}`}
-                              >
-                                〇
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleToggleCriterion(item.identifier, criterion.index, false)}
-                                className={`px-2 py-1 rounded text-xs border ${value === false ? "bg-red-600 text-white border-red-600" : "bg-white text-gray-600 border-gray-300"}`}
-                              >
-                                ×
-                              </button>
-                              <span className="text-xs text-gray-700">
-                                [{criterion.points}] {criterion.text}
-                              </span>
-                              {criterionStatus && (
-                                <span
-                                  className={`text-xs ${criterionStatus === "saving" ? "text-gray-500" : "text-green-600"}`}
-                                  data-testid={`save-status-${currentResult.fileName}-${item.identifier}-criterion-${criterion.index}`}
-                                  aria-live="polite"
-                                >
-                                  {criterionStatus === "saving" ? "保存中..." : "保存しました"}
-                                </span>
-                              )}
-                            </div>
+                            <RubricScoringControl
+                              key={criterion.index}
+                              item={item}
+                              criterion={criterion}
+                              value={value}
+                              saveStatus={criterionStatus}
+                              saveStatusTestId={`save-status-${currentResult.fileName}-${item.identifier}-criterion-${criterion.index}`}
+                              onChange={(next) => handleToggleCriterion(item.identifier, criterion.index, next)}
+                            />
                           );
                         })}
                       </div>
@@ -766,38 +812,17 @@ export default function WorkspacePage() {
                             );
                             const criterionStatus = saveStatusByKey[criterionKey];
                             return (
-                              <div key={criterion.index} className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateRubricOutcome(result.fileName, currentItem.identifier, criterion.index, true)
-                                  }
-                                  className={`px-2 py-1 rounded text-xs border ${value === true ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-600 border-gray-300"}`}
-                                >
-                                  〇
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateRubricOutcome(result.fileName, currentItem.identifier, criterion.index, false)
-                                  }
-                                  className={`px-2 py-1 rounded text-xs border ${value === false ? "bg-red-600 text-white border-red-600" : "bg-white text-gray-600 border-gray-300"}`}
-                                >
-                                  ×
-                                </button>
-                                <span className="text-xs text-gray-700">
-                                  [{criterion.points}] {criterion.text}
-                                </span>
-                                {criterionStatus && (
-                                  <span
-                                    className={`text-xs ${criterionStatus === "saving" ? "text-gray-500" : "text-green-600"}`}
-                                    data-testid={`save-status-${result.fileName}-${currentItem.identifier}-criterion-${criterion.index}`}
-                                    aria-live="polite"
-                                  >
-                                    {criterionStatus === "saving" ? "保存中..." : "保存しました"}
-                                  </span>
-                                )}
-                              </div>
+                              <RubricScoringControl
+                                key={criterion.index}
+                                item={currentItem}
+                                criterion={criterion}
+                                value={value}
+                                saveStatus={criterionStatus}
+                                saveStatusTestId={`save-status-${result.fileName}-${currentItem.identifier}-criterion-${criterion.index}`}
+                                onChange={(next) =>
+                                  updateRubricOutcome(result.fileName, currentItem.identifier, criterion.index, next)
+                                }
+                              />
                             );
                           })}
                         </div>

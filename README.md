@@ -62,6 +62,46 @@ npm run dev
 - Root element `assessmentResult`.
 - `itemResult@sequenceIndex` is required and must match the assessment-test item count.
 
+## Rubric UI behaviour
+
+The rubric control branches on the question type derived from the item XML:
+
+- `qti-choice-interaction` items (choice) are auto-scored by
+  `apply-to-qti-results`; the GUI shows a read-only "自動採点結果" badge and
+  a small "編集不可" hint. There is no clickable 〇 / × toggle. The comment
+  textarea is still editable.
+- `qti-text-entry-interaction` items (cloze) expose a one-way action: while
+  the criterion is `false` (or undefined) the scorer can press "正答に変更"
+  to flip it to `true`; once `true` the control switches to a static
+  "正答から誤答には変更できません" message and no downgrade button is rendered.
+- Everything else (descriptive items) keeps the original 〇 / × toggle.
+
+The same control is shared between the candidate-mode and item-mode views.
+
+## Results PUT endpoint
+
+`PUT /api/workspaces/:id/results` re-parses the saved Results Reporting XML
+after persisting the update and returns the ground-truth state so the
+frontend can reconcile its optimistic state. The response shape is:
+
+```json
+{
+  "success": true,
+  "items": [
+    {
+      "identifier": "item-1",
+      "rubricOutcomes": { "1": true, "2": false },
+      "score": 1,
+      "comment": "Optional comment"
+    }
+  ],
+  "testScore": 1
+}
+```
+
+`testScore` is the sum of the per-item `SCORE` values in the saved file.
+If the saved file cannot be parsed, the endpoint returns a 500 error.
+
 ## External Tools
 - Results XML updates use `apply-to-qti-results`.
 - Report generation uses `qti-reporter`.
