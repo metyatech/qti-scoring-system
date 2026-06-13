@@ -249,7 +249,7 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
                             onClick={handleImport}
                             disabled={importing}
                             title="選択した ZIP ファイルからワークスペースを復元します"
-                            className="mt-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-green-400 transition-colors"
+                            className="mt-2 bg-green-700 text-white px-4 py-2 rounded hover:bg-green-800 disabled:bg-green-700 transition-colors"
                         >
                             {importing ? 'インポート中...' : 'インポート実行'}
                         </button>
@@ -325,7 +325,7 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
                                                     </h3>
                                                     <button
                                                         onClick={() => toggleWorkspaceDetails(workspace.id)}
-                                                        className="text-gray-400 hover:text-gray-600 text-sm"
+                                                        className="text-gray-600 hover:text-gray-700 text-sm"
                                                         title="詳細を表示/非表示"
                                                     >
                                                         {expandedWorkspaces.has(workspace.id) ? '▼' : '▶'}
@@ -353,7 +353,7 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
                                             <button
                                                 onClick={() => onSelectWorkspace(workspace.id)}
                                                 title="このワークスペースを開いて採点を開始または継続します"
-                                                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+                                                className="bg-green-700 text-white px-4 py-2 rounded hover:bg-green-800 transition-colors"
                                             >
                                                 開く
                                             </button>
@@ -385,7 +385,7 @@ export default function WorkspaceSelector({ onSelectWorkspace, onCreateNew }: Wo
                     <div className="text-gray-500 mb-4">
                         まだワークスペースがありません
                     </div>
-                    <div className="text-sm text-gray-400">
+                    <div className="text-sm text-gray-600">
                         「新しいワークスペースを作成」ボタンから始めてください
                     </div>
                 </div>

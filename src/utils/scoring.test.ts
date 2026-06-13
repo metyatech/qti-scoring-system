@@ -228,11 +228,12 @@ describe('scoring helpers', () => {
   //
   // A 0.1 + 0.2 rubric sums to 0.30000000000000004 in IEEE-754, so a strict
   // `score !== maxScore` mis-classifies an authored SCORE of 0.3 as partial.
-  // getEffectiveRubricOutcomes must compare with decimal-scale rounding so the
-  // full-score SCORE-only inference still fires. The cases below pin down the
-  // *external* behaviour on the boundary values that motivated the float-safe
-  // comparison; the internal `decimalEqual` helper is asserted through its
-  // observable effect on `getEffectiveRubricOutcomes` so a future swap is safe.
+  // getEffectiveRubricOutcomes must compare with a small magnitude-scaled
+  // Number.EPSILON tolerance so the full-score SCORE-only inference still
+  // fires. The cases below pin down the *external* behaviour on the boundary
+  // values that motivated the float-safe comparison; the internal
+  // `decimalEqual` helper is asserted through its observable effect on
+  // `getEffectiveRubricOutcomes` so a future swap is safe.
 
   const decimalClozeItem = (...points: number[]): QtiItem => ({
     ...baseItem,
@@ -285,9 +286,9 @@ describe('scoring helpers', () => {
     // Regression: the previous `Math.max(1, ...)` floor injected an absolute
     // tolerance of ~3.55e-15 into every comparison, so 0 vs 1e-16 was
     // misreported as equal and every rubric criterion was wrongly inferred
-    // true on a 0-point score. With the `Number.MIN_VALUE` anchor the budget
-    // at this magnitude is ~1.8e-37, so the 1e-16 gap is 21 orders of
-    // magnitude above it and inference must NOT fire.
+    // true on a 0-point score. The Number.MIN_VALUE anchor now scales the
+    // tolerance with the operand magnitude, so the tolerance is many orders
+    // of magnitude smaller than the 1e-16 gap and inference must NOT fire.
     const item = decimalClozeItem(1e-16);
     const result: QtiItemResult = {
       resultIdentifier: 'item-1',
