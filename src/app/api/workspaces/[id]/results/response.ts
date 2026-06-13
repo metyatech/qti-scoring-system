@@ -21,7 +21,13 @@ export interface ResultUpdateResponse {
 }
 
 export interface BuildResultUpdateResponseInput {
-  savedXml: string;
+  /**
+   * The Results Reporting XML the server is ABOUT TO save — the output of
+   * `applyQtiResultsUpdate`, validated BEFORE it is written to the production
+   * file. The route persists it only if this helper returns without throwing,
+   * so a validation failure can never leave a corrupt file on disk.
+   */
+  updatedXml: string;
   fileName: string;
   requestedIdentifiers: string[];
   /**
@@ -53,10 +59,12 @@ export interface BuildResultUpdateResponseInput {
 }
 
 /**
- * Build the JSON body for the PUT /results route by re-parsing the saved
- * Results Reporting XML. Returns the rubricOutcomes / score / comment that the
- * server actually wrote, so the frontend can replace its optimistic state
- * with the ground truth.
+ * Build the JSON body for the PUT /results route by parsing the Results
+ * Reporting XML the server is about to persist (`updatedXml`). This runs
+ * BEFORE the production file is written, so any validation failure here aborts
+ * the request with the old file still intact. Returns the rubricOutcomes /
+ * score / comment the server is about to write, so the frontend can replace
+ * its optimistic state with the ground truth.
  *
  * `requestedIdentifiers` are matched against the **assessment item**
  * identifiers (resolved via `remapResultToAssessmentItems` from the parsed
@@ -78,12 +86,12 @@ export interface BuildResultUpdateResponseInput {
  * `{ success: true, ... }` only on success.
  */
 export const buildResultUpdateResponse = ({
-  savedXml,
+  updatedXml,
   fileName,
   requestedIdentifiers,
   assessmentTestRefs,
 }: BuildResultUpdateResponseInput): ResultUpdateResponse => {
-  const result = parseQtiResultsXml(savedXml, fileName);
+  const result = parseQtiResultsXml(updatedXml, fileName);
   const { mappedItemResults, missingResultIdentifiers, duplicateItemIdentifiers } =
     remapResultToAssessmentItems(result, assessmentTestRefs);
 
@@ -130,17 +138,18 @@ export const buildResultUpdateResponse = ({
   return {
     success: true,
     items,
-    testScore: computeTestScore(savedXml, result),
+    testScore: computeTestScore(updatedXml, result),
   };
 };
 
 /**
- * Resolve the whole-test score from the saved Results Reporting XML. Prefers
- * the authoritative `testResult/SCORE`; when that outcome is absent, sums the
- * SCORE of every itemResult in the document (not just the requested ones).
+ * Resolve the whole-test score from the Results Reporting XML about to be
+ * saved. Prefers the authoritative `testResult/SCORE`; when that outcome is
+ * absent, sums the SCORE of every itemResult in the document (not just the
+ * requested ones).
  */
-const computeTestScore = (savedXml: string, result: QtiResult): number | null => {
-  const testResultScore = extractTestResultScore(savedXml);
+const computeTestScore = (updatedXml: string, result: QtiResult): number | null => {
+  const testResultScore = extractTestResultScore(updatedXml);
   if (testResultScore !== null) {
     return testResultScore;
   }

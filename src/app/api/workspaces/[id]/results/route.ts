@@ -87,28 +87,29 @@ export async function PUT(
         scoringPath: tmpPath,
         preserveMet: body.preserveMet,
       });
-      await updateResultXml(workspaceDir, safeResultName, updatedXml);
 
-      // Re-read the file we just persisted so the response reflects the
-      // ground truth — apply-to-qti-results may have ignored the criteria
-      // payload for auto-scored items (e.g. choice) and kept the previous
-      // values.
-      const savedXml = await fs.promises.readFile(resultPath, 'utf-8');
-      // Also re-read the assessment-test XML: the helper needs to remap
-      // Results-side itemResult identifiers onto the assessment item
-      // identifiers via the assessment-test item refs. Any throw from the
-      // helper (unparseable assessment-test, unmapped itemResult, ambiguous
-      // remap, unknown requested identifier, or persisted-but-missing
-      // itemResult) propagates to the outer catch and becomes a 500 so the
-      // frontend can roll back its optimistic update.
+      // Validate the update BEFORE touching the production file. The
+      // assessment-test XML is needed so the helper can remap Results-side
+      // itemResult identifiers onto the assessment item identifiers via the
+      // assessment-test item refs. We pass `updatedXml` (the apply output)
+      // directly — it is exactly what we are about to persist, so no re-read
+      // is required. Any throw here (unparseable assessment-test, unmapped
+      // itemResult, ambiguous remap, unknown requested identifier, or
+      // missing itemResult) propagates to the outer catch and becomes a 500,
+      // and crucially the production file is still untouched because
+      // updateResultXml has not run yet — so the frontend's optimistic
+      // rollback matches the on-disk state.
       const assessmentTestXml = await fs.promises.readFile(assessmentTestPath, 'utf-8');
       const assessmentTestRefs = parseAssessmentTestXml(assessmentTestXml);
       const responseBody = buildResultUpdateResponse({
-        savedXml,
+        updatedXml,
         fileName: safeResultName,
         requestedIdentifiers: body.items.map((item) => item.identifier),
         assessmentTestRefs,
       });
+
+      // Validation succeeded — only now persist the new XML to production.
+      await updateResultXml(workspaceDir, safeResultName, updatedXml);
       return NextResponse.json(responseBody);
     } finally {
       try { await fs.promises.unlink(tmpPath); } catch { /* ignore */ }

@@ -1,5 +1,29 @@
 import type { QtiItem, QtiItemResult } from '@/utils/qtiParsing';
 
+/**
+ * Number of significant decimal places in `value`, capped at 6 to avoid
+ * pathological scales from float-representation noise (e.g.
+ * 0.1 + 0.2 === 0.30000000000000004).
+ */
+const decimalScale = (value: number): number => {
+  if (!Number.isFinite(value)) return 0;
+  const text = value.toString();
+  const dot = text.indexOf('.');
+  return dot === -1 ? 0 : Math.min(text.length - dot - 1, 6); // cap at 6 to avoid pathological scales
+};
+
+/**
+ * Float-safe equality for scores. Rubric points and authored SCORE values are
+ * decimals (e.g. 0.1 + 0.2), so a strict `===` mis-classifies a full score as
+ * partial. Compare both operands as integers scaled to the larger of their two
+ * decimal precisions instead.
+ */
+const decimalEqual = (a: number, b: number): boolean => {
+  const scale = Math.max(decimalScale(a), decimalScale(b));
+  const factor = 10 ** scale;
+  return Math.round(a * factor) === Math.round(b * factor);
+};
+
 export const getItemMaxScore = (item: QtiItem): number => {
   return item.rubric.reduce((sum, criterion) => sum + (Number.isFinite(criterion.points) ? criterion.points : 0), 0);
 };
@@ -57,7 +81,7 @@ export const getEffectiveRubricOutcomes = (
   if (!hasNoExplicitRubricOutcomes(item, outcomes)) return outcomes;
   if (!itemResult || typeof itemResult.score !== 'number') return outcomes;
   const maxScore = getItemMaxScore(item);
-  if (maxScore <= 0 || itemResult.score !== maxScore) return outcomes;
+  if (maxScore <= 0 || !decimalEqual(itemResult.score, maxScore)) return outcomes;
   const inferred: Record<number, boolean> = {};
   for (const criterion of item.rubric) {
     inferred[criterion.index] = true;

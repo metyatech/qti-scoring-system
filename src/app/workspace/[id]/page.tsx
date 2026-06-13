@@ -18,7 +18,8 @@ import {
   parseQtiResultsXml,
   remapResultToAssessmentItems,
 } from "@/utils/qtiParsing";
-import { getEffectiveRubricOutcomes, getItemMaxScore, getItemScore, getRubricScore } from "@/utils/scoring";
+import { getEffectiveRubricOutcomes, getItemMaxScore, getItemScore } from "@/utils/scoring";
+import { computeOptimisticItemResultScore } from "@/utils/optimisticScore";
 import { buildCriteriaUpdate, updateItemComment } from "@/utils/resultUpdates";
 import { useHighlightCodeBlocks } from "@/hooks/useHighlightCodeBlocks";
 import { useIncrementalList } from "@/hooks/useIncrementalList";
@@ -401,7 +402,9 @@ export default function WorkspacePage() {
         };
         nextRubricOutcomes = { ...itemResult.rubricOutcomes, [criterionIndex]: value };
         const item = items.find((i) => i.identifier === itemId);
-        const score = item ? getRubricScore(item, nextRubricOutcomes) : itemResult.score;
+        const score = item
+          ? computeOptimisticItemResultScore(item, itemResult, nextRubricOutcomes) ?? undefined
+          : itemResult.score;
         return {
           ...res,
           itemResults: {

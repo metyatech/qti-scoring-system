@@ -30,7 +30,7 @@ const refs = (...identifiers: string[]): AssessmentItemRef[] =>
 
 describe('buildResultUpdateResponse', () => {
   it('parses the saved XML and returns items + testScore for the requested identifiers', () => {
-    const savedXml = wrapResult(
+    const updatedXml = wrapResult(
       `
   <itemResult identifier="item-1" sequenceIndex="1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final">
     <responseVariable identifier="RESPONSE" cardinality="single" base-type="string">
@@ -45,7 +45,7 @@ describe('buildResultUpdateResponse', () => {
     );
 
     const response = buildResultUpdateResponse({
-      savedXml,
+      updatedXml,
       fileName: 'assessmentResult-1.xml',
       requestedIdentifiers: ['item-1'],
       assessmentTestRefs: refs('item-1'),
@@ -64,7 +64,7 @@ describe('buildResultUpdateResponse', () => {
     // Simulates a choice item that apply-to-qti-results refused to downgrade
     // because it is auto-scored: the server kept RUBRIC_1_MET=true and
     // SCORE=1 even though the caller requested met=false.
-    const savedXml = wrapResult(
+    const updatedXml = wrapResult(
       `
   <itemResult identifier="item-1" sequenceIndex="1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final">
     <responseVariable identifier="RESPONSE" cardinality="single" base-type="string">
@@ -77,7 +77,7 @@ describe('buildResultUpdateResponse', () => {
     );
 
     const response = buildResultUpdateResponse({
-      savedXml,
+      updatedXml,
       fileName: 'assessmentResult-1.xml',
       requestedIdentifiers: ['item-1'],
       assessmentTestRefs: refs('item-1'),
@@ -92,7 +92,7 @@ describe('buildResultUpdateResponse', () => {
     // Caller asked for met=true on a cloze criterion that was previously
     // false; apply-to-qti-results persisted the new value, so the helper
     // sees RUBRIC_1_MET=true and reports it back as true.
-    const savedXml = wrapResult(
+    const updatedXml = wrapResult(
       `
   <itemResult identifier="item-1" sequenceIndex="1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final">
     <responseVariable identifier="RESPONSE" cardinality="single" base-type="string">
@@ -106,7 +106,7 @@ describe('buildResultUpdateResponse', () => {
     );
 
     const response = buildResultUpdateResponse({
-      savedXml,
+      updatedXml,
       fileName: 'assessmentResult-cloze-1.xml',
       requestedIdentifiers: ['item-1'],
       assessmentTestRefs: refs('item-1'),
@@ -121,7 +121,7 @@ describe('buildResultUpdateResponse', () => {
     // Two-item test: item-1 scores 1, item-2 scores 2. Only item-1 is updated,
     // and testResult/SCORE is absent, so the helper must fall back to summing
     // EVERY itemResult (1 + 2 = 3) rather than just the requested item-1.
-    const savedXml = wrapResult(
+    const updatedXml = wrapResult(
       `
   <itemResult identifier="item-1" sequenceIndex="1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final">
     <responseVariable identifier="RESPONSE" cardinality="single" base-type="string">
@@ -139,7 +139,7 @@ describe('buildResultUpdateResponse', () => {
     );
 
     const response = buildResultUpdateResponse({
-      savedXml,
+      updatedXml,
       fileName: 'assessmentResult-multi-1.xml',
       requestedIdentifiers: ['item-1'],
       assessmentTestRefs: refs('item-1', 'item-2'),
@@ -154,7 +154,7 @@ describe('buildResultUpdateResponse', () => {
   it('prefers the authoritative testResult/SCORE over the item-score sum', () => {
     // The saved testResult/SCORE (7) is the source of truth even if it does not
     // match the per-item sum; the helper must return it verbatim.
-    const savedXml = wrapResult(
+    const updatedXml = wrapResult(
       `
   <itemResult identifier="item-1" sequenceIndex="1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final">
     <responseVariable identifier="RESPONSE" cardinality="single" base-type="string">
@@ -172,7 +172,7 @@ describe('buildResultUpdateResponse', () => {
     );
 
     const response = buildResultUpdateResponse({
-      savedXml,
+      updatedXml,
       fileName: 'assessmentResult-multi-2.xml',
       requestedIdentifiers: ['item-1'],
       assessmentTestRefs: refs('item-1', 'item-2'),
@@ -187,7 +187,7 @@ describe('buildResultUpdateResponse', () => {
     // but the Results XML uses the legacy "Q1" identifier with
     // sequenceIndex=1. The helper must resolve Q1 -> question-source-id
     // via the Q<n> remap and match the request accordingly.
-    const savedXml = wrapResult(
+    const updatedXml = wrapResult(
       `
   <itemResult identifier="Q1" sequenceIndex="1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final">
     <responseVariable identifier="RESPONSE" cardinality="single" base-type="string">
@@ -200,7 +200,7 @@ describe('buildResultUpdateResponse', () => {
     );
 
     const response = buildResultUpdateResponse({
-      savedXml,
+      updatedXml,
       fileName: 'assessmentResult-remap-1.xml',
       requestedIdentifiers: ['question-source-id'],
       assessmentTestRefs: refs('question-source-id'),
@@ -217,7 +217,7 @@ describe('buildResultUpdateResponse', () => {
     // The assessment item "item-2" exists in the test, but the saved XML
     // has no itemResult that maps to it. Returning a sparse row would
     // erase the caller's just-saved UI state, so the helper throws.
-    const savedXml = wrapResult(
+    const updatedXml = wrapResult(
       `
   <itemResult identifier="item-1" sequenceIndex="1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final">
     <responseVariable identifier="RESPONSE" cardinality="single" base-type="string">
@@ -230,7 +230,7 @@ describe('buildResultUpdateResponse', () => {
 
     expect(() =>
       buildResultUpdateResponse({
-        savedXml,
+        updatedXml,
         fileName: 'assessmentResult-1.xml',
         requestedIdentifiers: ['item-2'],
         assessmentTestRefs: refs('item-1', 'item-2'),
@@ -241,7 +241,7 @@ describe('buildResultUpdateResponse', () => {
   it('throws when the requested identifier is not an item in the assessment-test', () => {
     // The saved XML is well-formed, but the caller asked for "item-ghost",
     // which is not in the assessment-test at all.
-    const savedXml = wrapResult(
+    const updatedXml = wrapResult(
       `
   <itemResult identifier="item-1" sequenceIndex="1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final">
     <responseVariable identifier="RESPONSE" cardinality="single" base-type="string">
@@ -254,7 +254,7 @@ describe('buildResultUpdateResponse', () => {
 
     expect(() =>
       buildResultUpdateResponse({
-        savedXml,
+        updatedXml,
         fileName: 'assessmentResult-1.xml',
         requestedIdentifiers: ['item-ghost'],
         assessmentTestRefs: refs('item-1'),
@@ -267,7 +267,7 @@ describe('buildResultUpdateResponse', () => {
     // out of range for the two-item assessment-test. There is no
     // identifier match either. The remap helper flags this and the
     // route-layer helper surfaces it.
-    const savedXml = wrapResult(
+    const updatedXml = wrapResult(
       `
   <itemResult identifier="orphan-1" sequenceIndex="99" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final">
     <responseVariable identifier="RESPONSE" cardinality="single" base-type="string">
@@ -280,7 +280,7 @@ describe('buildResultUpdateResponse', () => {
 
     expect(() =>
       buildResultUpdateResponse({
-        savedXml,
+        updatedXml,
         fileName: 'assessmentResult-orphan.xml',
         requestedIdentifiers: ['item-1'],
         assessmentTestRefs: refs('item-1', 'item-2'),
@@ -294,7 +294,7 @@ describe('buildResultUpdateResponse', () => {
     // remap rules: "Q1" matches by Q<n> pattern, "item-1" matches by
     // direct identifier, and there is only one assessment item in the
     // test. The remap helper flags this as a duplicate mapping.
-    const savedXml = wrapResult(
+    const updatedXml = wrapResult(
       `
   <itemResult identifier="Q1" sequenceIndex="1" datestamp="2026-01-01T10:10:00+09:00" sessionStatus="final">
     <responseVariable identifier="RESPONSE" cardinality="single" base-type="string">
@@ -313,7 +313,7 @@ describe('buildResultUpdateResponse', () => {
 
     expect(() =>
       buildResultUpdateResponse({
-        savedXml,
+        updatedXml,
         fileName: 'assessmentResult-dup.xml',
         requestedIdentifiers: ['item-1'],
         assessmentTestRefs: refs('item-1'),
