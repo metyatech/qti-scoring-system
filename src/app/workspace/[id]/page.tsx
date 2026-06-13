@@ -18,7 +18,7 @@ import {
   parseQtiResultsXml,
   remapResultToAssessmentItems,
 } from "@/utils/qtiParsing";
-import { getItemMaxScore, getItemScore, getRubricScore } from "@/utils/scoring";
+import { getEffectiveRubricOutcomes, getItemMaxScore, getItemScore, getRubricScore } from "@/utils/scoring";
 import { buildCriteriaUpdate, updateItemComment } from "@/utils/resultUpdates";
 import { useHighlightCodeBlocks } from "@/hooks/useHighlightCodeBlocks";
 import { useIncrementalList } from "@/hooks/useIncrementalList";
@@ -704,7 +704,7 @@ export default function WorkspacePage() {
                       <div className="text-xs text-gray-500 mb-2">採点基準</div>
                       <div className="space-y-2">
                         {rubric.map((criterion) => {
-                          const value = itemResult?.rubricOutcomes[criterion.index];
+                          const value = getEffectiveRubricOutcomes(item, itemResult)[criterion.index];
                           const criterionKey = makeCriterionKey(
                             currentResult.fileName,
                             item.identifier,
@@ -804,7 +804,7 @@ export default function WorkspacePage() {
                         <div className="text-xs text-gray-500 mb-2">採点基準</div>
                         <div className="space-y-2">
                           {currentItem.rubric.map((criterion) => {
-                            const value = itemResult?.rubricOutcomes[criterion.index];
+                            const value = getEffectiveRubricOutcomes(currentItem, itemResult)[criterion.index];
                             const criterionKey = makeCriterionKey(
                               result.fileName,
                               currentItem.identifier,

@@ -30,8 +30,12 @@ export type RubricScoringControlProps = {
  *   "編集不可" hint. The user can still edit the comment textarea.
  * - `cloze` items expose `qti-text-entry-interaction` and may be partially
  *   correct. To avoid user confusion, the rubric is one-way: a scorer may
- *   flip `false → true` (正答に変更) but the reverse direction is hidden in
- *   the UI. Once `true`, a static message is rendered instead of any button.
+ *   flip `false`/`undefined → true` (正答に変更) but the reverse direction is
+ *   hidden in the UI. Once `true`, a static message is rendered instead of any
+ *   button. The three states are kept visually distinct: `true` shows ○,
+ *   `false` shows ×, and `undefined` shows a neutral "未判定" — undefined is
+ *   NOT a wrong answer (the criterion is simply undetermined for a SCORE-only
+ *   file), so it must never be rendered as × / 誤答.
  * - everything else (`descriptive`) keeps the original 〇 / × toggle.
  */
 export default function RubricScoringControl({
@@ -95,10 +99,24 @@ export default function RubricScoringControl({
         </div>
       );
     }
+    // `false` (explicitly wrong) and `undefined` (undetermined, e.g. a
+    // SCORE-only file) both expose the one-way "正答に変更" upgrade, but they
+    // render with distinct, non-color-only labels so undefined is never read as
+    // a wrong answer.
+    const isUndetermined = value === undefined;
     return (
-      <div className="flex items-center gap-2" data-testid="rubric-cloze-upgradeable">
-        <span className="px-2 py-1 rounded text-xs border bg-red-600 text-white border-red-600">
-          現在: ×
+      <div
+        className="flex items-center gap-2"
+        data-testid={isUndetermined ? "rubric-cloze-undetermined" : "rubric-cloze-upgradeable"}
+      >
+        <span
+          className={`px-2 py-1 rounded text-xs border ${
+            isUndetermined
+              ? "bg-gray-100 text-gray-700 border-gray-300"
+              : "bg-red-600 text-white border-red-600"
+          }`}
+        >
+          {isUndetermined ? "現在: 未判定" : "現在: ×"}
         </span>
         <button
           type="button"

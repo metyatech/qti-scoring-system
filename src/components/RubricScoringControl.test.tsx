@@ -138,4 +138,42 @@ describe('RubricScoringControl', () => {
     });
     expect(onChange).toHaveBeenCalledWith(false);
   });
+
+  it('renders undefined as "未判定" for cloze items (never as ×)', () => {
+    // Fix #3: an undefined outcome on a cloze rubric is a SCORE-only "undetermined"
+    // state, not a wrong answer. The control must show "現在: 未判定" (neutral
+    // gray) and an "正答に変更" upgrade button, and must NOT render the
+    // "現在: ×" / "誤答" red badge used for explicitly false outcomes.
+    const onChange = vi.fn();
+    act(() => {
+      root.render(
+        <RubricScoringControl
+          item={makeItem('cloze')}
+          criterion={baseCriterion}
+          value={undefined}
+          onChange={onChange}
+        />
+      );
+    });
+
+    // The undetermined badge is rendered, the upgradeable (×) badge is not.
+    expect(container.querySelector('[data-testid="rubric-cloze-undetermined"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="rubric-cloze-upgradeable"]')).toBeNull();
+
+    // Label semantics: "未判定" present, "現在: ×" absent, "誤答" absent.
+    expect(container.textContent).toContain('現在: 未判定');
+    expect(container.textContent).not.toContain('現在: ×');
+    expect(container.textContent).not.toContain('誤答');
+
+    // The one-way "正答に変更" upgrade button is still exposed for undefined.
+    const upgradeButton = container.querySelector('button');
+    expect(upgradeButton).not.toBeNull();
+    expect(upgradeButton?.textContent).toContain('正答に変更');
+
+    act(() => {
+      upgradeButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(true);
+  });
 });

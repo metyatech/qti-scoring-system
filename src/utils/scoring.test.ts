@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { QtiItem, QtiItemResult } from '@/utils/qtiParsing';
-import { getItemMaxScore, getItemScore, getRubricScore } from '@/utils/scoring';
+import {
+  getEffectiveRubricOutcomes,
+  getItemMaxScore,
+  getItemScore,
+  getRubricScore,
+  hasCompleteRubricOutcomes,
+} from '@/utils/scoring';
 
 describe('scoring helpers', () => {
   const baseItem: QtiItem = {
@@ -58,5 +64,163 @@ describe('scoring helpers', () => {
       rubricOutcomes: {},
     };
     expect(getItemScore(itemNoRubric, result)).toBe(4);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Fix #1 / #2 / #3 — hasCompleteRubricOutcomes, getItemScore precedence
+  // rules, and getEffectiveRubricOutcomes full-score inference.
+  // ---------------------------------------------------------------------------
+
+  it('hasCompleteRubricOutcomes is false when any criterion is missing', () => {
+    expect(hasCompleteRubricOutcomes(baseItem, { 1: true })).toBe(false);
+  });
+
+  it('hasCompleteRubricOutcomes is true when all criteria carry true or false', () => {
+    expect(hasCompleteRubricOutcomes(baseItem, { 1: true, 2: false })).toBe(true);
+  });
+
+  it('hasCompleteRubricOutcomes is false when the item has no rubric', () => {
+    const itemNoRubric: QtiItem = { ...baseItem, rubric: [] };
+    expect(hasCompleteRubricOutcomes(itemNoRubric, {})).toBe(false);
+  });
+
+  it('getItemScore prefers rubric computation when ALL rubric outcomes are present (even if explicit score disagrees)', () => {
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'A',
+      score: 5,
+      rubricOutcomes: { 1: true, 2: false },
+    };
+    // rubric sum: 1*2 + 0*1 = 2 (NOT the explicit score 5)
+    expect(getItemScore(baseItem, result)).toBe(2);
+  });
+
+  it('getItemScore returns explicit SCORE when rubric outcomes are incomplete and no RUBRIC exists', () => {
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'A',
+      score: 2,
+      rubricOutcomes: {},
+    };
+    expect(getItemScore(baseItem, result)).toBe(2);
+  });
+
+  it('getItemScore returns explicit SCORE when only some rubric outcomes are true and SCORE is given', () => {
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'A',
+      score: 2,
+      rubricOutcomes: { 1: true },
+    };
+    expect(getItemScore(baseItem, result)).toBe(2);
+  });
+
+  it('getItemScore returns explicit SCORE when only some rubric outcomes are false and SCORE is given', () => {
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'A',
+      score: 2,
+      rubricOutcomes: { 2: false },
+    };
+    expect(getItemScore(baseItem, result)).toBe(2);
+  });
+
+  it('getItemScore falls back to summing explicit true outcomes when rubric is incomplete and SCORE is missing', () => {
+    // Use a 1pt + 2pt rubric so that summing only the explicit `true` outcome at
+    // index 1 yields exactly 1 point. This is the shape of "rubric 1+2" the
+    // test description refers to.
+    const onePlusTwoItem: QtiItem = {
+      ...baseItem,
+      rubric: [
+        { index: 1, points: 1, text: 'Criterion A' },
+        { index: 2, points: 2, text: 'Criterion B' },
+      ],
+    };
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'A',
+      rubricOutcomes: { 1: true },
+    };
+    // criterion 1 = 1 point (true), criterion 2 = undefined → not summed.
+    expect(getItemScore(onePlusTwoItem, result)).toBe(1);
+  });
+
+  it('getItemScore returns the explicit SCORE for a no-rubric item', () => {
+    const itemNoRubric: QtiItem = { ...baseItem, rubric: [] };
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'A',
+      score: 4,
+      rubricOutcomes: {},
+    };
+    expect(getItemScore(itemNoRubric, result)).toBe(4);
+  });
+
+  // --- getEffectiveRubricOutcomes: full-score SCORE-only inference (clo) ----
+
+  it('getEffectiveRubricOutcomes infers full true on full-score SCORE-only cloze', () => {
+    const clozeItem: QtiItem = { ...baseItem, type: 'cloze' };
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'paris',
+      score: 3, // rubric max
+      rubricOutcomes: {},
+    };
+    expect(getEffectiveRubricOutcomes(clozeItem, result)).toEqual({ 1: true, 2: true });
+  });
+
+  it('getEffectiveRubricOutcomes returns raw outcomes on partial-score SCORE-only cloze', () => {
+    const clozeItem: QtiItem = { ...baseItem, type: 'cloze' };
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'paris',
+      score: 2, // partial: not the rubric max
+      rubricOutcomes: {},
+    };
+    expect(getEffectiveRubricOutcomes(clozeItem, result)).toEqual({});
+  });
+
+  it('getEffectiveRubricOutcomes returns raw outcomes when any RUBRIC_n_MET exists even at full score', () => {
+    const clozeItem: QtiItem = { ...baseItem, type: 'cloze' };
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'paris',
+      score: 3, // full score
+      rubricOutcomes: { 1: true }, // ...but a partial set of outcomes is present
+    };
+    expect(getEffectiveRubricOutcomes(clozeItem, result)).toEqual({ 1: true });
+  });
+
+  it('getEffectiveRubricOutcomes is a no-op for choice items', () => {
+    const choiceItem: QtiItem = { ...baseItem, type: 'choice' };
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'A',
+      score: 3, // would be the rubric max
+      rubricOutcomes: {},
+    };
+    // Inference is cloze-only; choice items must never be auto-marked.
+    expect(getEffectiveRubricOutcomes(choiceItem, result)).toEqual({});
+  });
+
+  it('getEffectiveRubricOutcomes is a no-op for descriptive items', () => {
+    const descriptiveItem: QtiItem = { ...baseItem, type: 'descriptive' };
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'A',
+      score: 3, // would be the rubric max
+      rubricOutcomes: {},
+    };
+    expect(getEffectiveRubricOutcomes(descriptiveItem, result)).toEqual({});
+  });
+
+  it('getEffectiveRubricOutcomes returns raw outcomes when score is absent', () => {
+    const clozeItem: QtiItem = { ...baseItem, type: 'cloze' };
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'paris',
+      rubricOutcomes: {},
+    };
+    expect(getEffectiveRubricOutcomes(clozeItem, result)).toEqual({});
   });
 });

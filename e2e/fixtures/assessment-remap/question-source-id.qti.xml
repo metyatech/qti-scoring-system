@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="question-source-id" title="E2E Remap Item" adaptive="false" time-dependent="false">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string" />
+  <qti-item-body>
+    <qti-p>The capital of France is <qti-text-entry-interaction response-identifier="RESPONSE"/>.</qti-p>
+    <qti-rubric-block view="scorer">
+      <qti-p>[1] Capital is correct</qti-p>
+      <qti-p>[2] Capital is correctly spelled</qti-p>
+    </qti-rubric-block>
+  </qti-item-body>
+</qti-assessment-item>
