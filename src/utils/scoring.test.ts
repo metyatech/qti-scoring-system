@@ -293,4 +293,129 @@ describe('scoring helpers', () => {
     };
     expect(getEffectiveRubricOutcomes(item, result)).toEqual({ 1: true });
   });
+
+  // ---------------------------------------------------------------------------
+  // decimalEqual / no-inference regression block
+  //
+  // These tests pin down the *external* behaviour of `getEffectiveRubricOutcomes`
+  // (and `getItemScore` where it matters) on the boundary cases that motivated
+  // the float-safe comparison. They exercise the public surface, not the
+  // helper directly, so a future implementation swap (e.g. to a different
+  // float comparison or a different inference rule) can be made safely as long
+  // as the externally visible behaviour is preserved.
+  // ---------------------------------------------------------------------------
+
+  it('decimalEqual: SCORE=0.3 with rubric [0.1, 0.2] infers {1:true, 2:true} (ULP-absorbed 0.1+0.2)', () => {
+    // 0.1 + 0.2 === 0.30000000000000004 in IEEE-754, so decimalEqual must
+    // accept SCORE=0.3 as a full score against that noisy max.
+    const item = decimalClozeItem(0.1, 0.2);
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'paris',
+      score: 0.3,
+      rubricOutcomes: {},
+    };
+    expect(getEffectiveRubricOutcomes(item, result)).toEqual({ 1: true, 2: true });
+  });
+
+  it('decimalEqual: SCORE=0 against rubric [0.0000004] does NOT infer (4e-7 is far above the ULP budget)', () => {
+    // 0 vs 0.0000004 has |diff| = 4e-7; magnitude = 4e-7; tolerance is
+    // ~Number.EPSILON * 4e-7 * 16 ≈ 1.43e-21, so the gap is ~14 orders of
+    // magnitude above the budget. Inference must NOT fire.
+    const item = decimalClozeItem(0.0000004);
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'paris',
+      score: 0,
+      rubricOutcomes: {},
+    };
+    expect(getEffectiveRubricOutcomes(item, result)).toEqual({});
+  });
+
+  it('decimalEqual: SCORE=0.0000004 against rubric [0.0000004] infers {1:true} (bit-identical)', () => {
+    // Object.is(0.0000004, 0.0000004) is true, so this short-circuits to equal.
+    const item = decimalClozeItem(0.0000004);
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'paris',
+      score: 0.0000004,
+      rubricOutcomes: {},
+    };
+    expect(getEffectiveRubricOutcomes(item, result)).toEqual({ 1: true });
+  });
+
+  it('decimalEqual: SCORE=0.1234560 against rubric [0.1234564] does NOT infer (4e-7 > ULP budget)', () => {
+    // |diff| = 4e-7, magnitude = 0.1234564, tolerance ~ 8.76e-16. The gap is
+    // nine orders of magnitude above the budget; the helper must report no
+    // inference so the criterion stays undefined.
+    const item = decimalClozeItem(0.1234564);
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'paris',
+      score: 0.1234560,
+      rubricOutcomes: {},
+    };
+    expect(getEffectiveRubricOutcomes(item, result)).toEqual({});
+  });
+
+  it('decimalEqual: SCORE=1 against rubric [0.25, 0.75] infers {1:true, 2:true} (float-noisy but exact equal)', () => {
+    // 0.25 + 0.75 === 1 exactly in IEEE-754 (both are representable binary
+    // fractions), so this exercises the "max === 1" branch with no float noise.
+    const item = decimalClozeItem(0.25, 0.75);
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'paris',
+      score: 1,
+      rubricOutcomes: {},
+    };
+    expect(getEffectiveRubricOutcomes(item, result)).toEqual({ 1: true, 2: true });
+  });
+
+  it('decimalEqual: integer rubric (max=3) at SCORE=3 infers {1:true, 2:true} (integer path intact)', () => {
+    // baseItem is 1pt + 2pt; SCORE=3 is bit-identical to the rubric max.
+    const clozeItem: QtiItem = { ...baseItem, type: 'cloze' };
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'paris',
+      score: 3,
+      rubricOutcomes: {},
+    };
+    expect(getEffectiveRubricOutcomes(clozeItem, result)).toEqual({ 1: true, 2: true });
+  });
+
+  it('decimalEqual: SCORE=NaN against rubric [0.1, 0.2] does NOT infer (NaN can never be a full score)', () => {
+    const item = decimalClozeItem(0.1, 0.2);
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'paris',
+      score: NaN,
+      rubricOutcomes: {},
+    };
+    expect(getEffectiveRubricOutcomes(item, result)).toEqual({});
+  });
+
+  it('decimalEqual: SCORE=Infinity against rubric [0.1, 0.2] does NOT infer (+Inf is not a finite score)', () => {
+    const item = decimalClozeItem(0.1, 0.2);
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'paris',
+      score: Infinity,
+      rubricOutcomes: {},
+    };
+    expect(getEffectiveRubricOutcomes(item, result)).toEqual({});
+  });
+
+  it('decimalEqual: full-score SCORE with one RUBRIC_n_MET present returns raw outcomes (explicit-wins rule still holds)', () => {
+    // Re-confirm the "any explicit outcome present" rule still wins after the
+    // float-safe comparison change: the raw outcomes are returned verbatim
+    // (1: true), no inference is layered on top of the missing criterion 2.
+    const item = decimalClozeItem(0.1, 0.2);
+    const result: QtiItemResult = {
+      resultIdentifier: 'item-1',
+      response: 'paris',
+      score: 0.3,
+      rubricOutcomes: { 1: true },
+    };
+    expect(getEffectiveRubricOutcomes(item, result)).toEqual({ 1: true });
+  });
 });

@@ -6,6 +6,10 @@ import { buildResultUpdateResponse } from '@/app/api/workspaces/[id]/results/res
 import { updateResultXml } from '@/lib/workspace';
 import { parseAssessmentTestXml, parseQtiResultsXml } from '@/utils/qtiParsing';
 
+// These tests exercise the persistence + byte-identical guarantees against the
+// real filesystem. The call-order contract is owned by
+// `result-update-pipeline.test.ts`.
+
 const wrapResult = (itemResultXml: string, testScore: string | null = '0') => {
   const testScoreXml =
     testScore === null
@@ -106,7 +110,7 @@ afterEach(async () => {
   tempDirs = [];
 });
 
-describe('results PUT validate-before-write flow', () => {
+describe('results update real-file persistence (validate-before-write)', () => {
   it('writes updated XML only after response generation succeeds', async () => {
     const workspaceDir = await makeWorkspace();
 

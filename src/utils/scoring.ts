@@ -1,27 +1,38 @@
 import type { QtiItem, QtiItemResult } from '@/utils/qtiParsing';
 
 /**
- * Number of significant decimal places in `value`, capped at 6 to avoid
- * pathological scales from float-representation noise (e.g.
- * 0.1 + 0.2 === 0.30000000000000004).
- */
-const decimalScale = (value: number): number => {
-  if (!Number.isFinite(value)) return 0;
-  const text = value.toString();
-  const dot = text.indexOf('.');
-  return dot === -1 ? 0 : Math.min(text.length - dot - 1, 6); // cap at 6 to avoid pathological scales
-};
-
-/**
  * Float-safe equality for scores. Rubric points and authored SCORE values are
  * decimals (e.g. 0.1 + 0.2), so a strict `===` mis-classifies a full score as
- * partial. Compare both operands as integers scaled to the larger of their two
- * decimal precisions instead.
+ * partial. The previous integer-scaled `Math.round(a * 10^n)` design was
+ * fundamentally broken: it capped the scale at 6 (so 0.0000004 truncated to 0)
+ * and parsed `value.toString()` for the scale, which silently mis-categorised
+ * numbers in scientific notation (e.g. `4e-7` is "no decimal point" and
+ * therefore scale 0).
+ *
+ * This implementation compares the relative + absolute difference against a
+ * small multiple of `Number.EPSILON`. It only ever returns true when the
+ * operands are bit-identical, a few ULPs apart (so `0.1 + 0.2` ≈ 0.3), or
+ * essentially zero. Any genuinely different decimal — e.g. 0 vs 0.0000004,
+ * 0.1234560 vs 0.1234564 — has a difference orders of magnitude larger than
+ * the tolerance and is reported as not-equal.
+ *
+ * Non-finite inputs (`NaN`, `Infinity`, `-Infinity`) never compare equal to
+ * anything, so a corrupted score can never be mis-classified as a rubric max.
+ *
+ * The coefficient (16) is a conservative multiple of `Number.EPSILON`
+ * (≈ 2^(-52)) that absorbs at most ~4 ULPs of accumulated float-representation
+ * noise from a few additions or multiplications, which is the worst case seen
+ * in real QTI scoring paths. It is not a "fixed big epsilon" — the actual
+ * tolerance scales linearly with the magnitude of the operands.
  */
+const SCORE_EQUAL_ULP_BUDGET = 16;
+
 const decimalEqual = (a: number, b: number): boolean => {
-  const scale = Math.max(decimalScale(a), decimalScale(b));
-  const factor = 10 ** scale;
-  return Math.round(a * factor) === Math.round(b * factor);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+  if (Object.is(a, b)) return true;
+  const difference = Math.abs(a - b);
+  const magnitude = Math.max(1, Math.abs(a), Math.abs(b));
+  return difference <= Number.EPSILON * magnitude * SCORE_EQUAL_ULP_BUDGET;
 };
 
 export const getItemMaxScore = (item: QtiItem): number => {

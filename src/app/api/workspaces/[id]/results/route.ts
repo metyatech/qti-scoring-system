@@ -12,6 +12,7 @@ import {
 import { applyQtiResultsUpdate } from '@/lib/qtiTools';
 import { parseAssessmentTestXml } from '@/utils/qtiParsing';
 import { buildResultUpdateResponse } from './response';
+import { executeResultUpdate } from './executeResultUpdate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -81,35 +82,35 @@ export async function PUT(
     await fs.promises.copyFile(resultPath, tmpResultsPath);
 
     try {
-      const updatedXml = await applyQtiResultsUpdate({
-        resultsPath: tmpResultsPath,
-        assessmentTestPath,
-        scoringPath: tmpPath,
-        preserveMet: body.preserveMet,
-      });
-
       // Validate the update BEFORE touching the production file. The
       // assessment-test XML is needed so the helper can remap Results-side
       // itemResult identifiers onto the assessment item identifiers via the
       // assessment-test item refs. We pass `updatedXml` (the apply output)
       // directly — it is exactly what we are about to persist, so no re-read
-      // is required. Any throw here (unparseable assessment-test, unmapped
-      // itemResult, ambiguous remap, unknown requested identifier, or
-      // missing itemResult) propagates to the outer catch and becomes a 500,
-      // and crucially the production file is still untouched because
-      // updateResultXml has not run yet — so the frontend's optimistic
-      // rollback matches the on-disk state.
-      const assessmentTestXml = await fs.promises.readFile(assessmentTestPath, 'utf-8');
-      const assessmentTestRefs = parseAssessmentTestXml(assessmentTestXml);
-      const responseBody = buildResultUpdateResponse({
-        updatedXml,
-        fileName: safeResultName,
-        requestedIdentifiers: body.items.map((item) => item.identifier),
-        assessmentTestRefs,
-      });
-
-      // Validation succeeded — only now persist the new XML to production.
-      await updateResultXml(workspaceDir, safeResultName, updatedXml);
+      // is required. Any throw inside `executeResultUpdate` (unparseable
+      // assessment-test, unmapped itemResult, ambiguous remap, unknown
+      // requested identifier, missing itemResult, OR a persist failure)
+      // propagates to the outer catch and becomes a 500, and crucially the
+      // production file is still untouched unless every prior step succeeded
+      // — so the frontend's optimistic rollback matches the on-disk state.
+      const responseBody = await executeResultUpdate(
+        {
+          resultPath: tmpResultsPath,
+          assessmentTestPath,
+          scoringPath: tmpPath,
+          preserveMet: body.preserveMet,
+          fileName: safeResultName,
+          requestedIdentifiers: body.items.map((item) => item.identifier),
+        },
+        {
+          applyQtiResultsUpdate,
+          readAssessmentTestXml: (assessmentPath) => fs.promises.readFile(assessmentPath, 'utf-8'),
+          parseAssessmentTestXml,
+          buildResultUpdateResponse,
+          updateResultXml,
+          workspaceDir,
+        }
+      );
       return NextResponse.json(responseBody);
     } finally {
       try { await fs.promises.unlink(tmpPath); } catch { /* ignore */ }
