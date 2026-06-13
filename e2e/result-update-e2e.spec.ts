@@ -11,9 +11,29 @@ import { withWorkspace, waitForResultsUpdate } from './utils/workspace';
 // the review follow-up, so the assertion contracts documented in the
 // review notes are pinned here, against a real running dev server.
 //
-// E2E 1 — invalid PUT 500 leaves the production Results XML byte-identical
+// E2E 1 — invalid PUT (unknown identifier) rejected during apply leaves
+//         the production Results XML byte-identical.
+//         Verifies the apply-stage failure path: apply-to-qti-results
+//         rejects an item identifier that is not present in the
+//         assessment-test, so the failure is raised inside
+//         applyQtiResultsUpdate (the first step of the pipeline),
+//         BEFORE buildResultUpdateResponse / persist / re-parse can
+//         touch the file. The byte-identical assertion on the
+//         production Results XML therefore proves the apply-stage
+//         guard holds end to end via real HTTP.
 // E2E 2 — PUT 500 rolls back the optimistic UI and leaves the file untouched
 // E2E 3 — partial-score SCORE never drops below the explicit value during PUT
+//
+// Note on coverage split between this E2E file and the in-process
+// pipeline test:
+//   - src/app/api/workspaces/[id]/results/result-update-pipeline.test.ts
+//     owns the "save-before-validate guard": it pins the in-process
+//     call order so that response validation rejects a malformed
+//     apply result BEFORE the file is persisted.
+//   - This file (E2E 1) owns the apply-stage failure path: an
+//     unknown identifier is rejected inside applyQtiResultsUpdate
+//     itself, and the production Results XML is still byte-identical.
+//     The two tests together cover both gates of the pipeline.
 // ---------------------------------------------------------------------------
 
 const resultFilePath = (workspaceId: string, resultFile: string) =>
@@ -28,7 +48,23 @@ const listResultsDir = async (workspaceId: string) => {
   }
 };
 
-test('invalid PUT 500 leaves the production Results XML byte-identical', async ({ page }) => {
+test('invalid PUT (unknown identifier) rejected during apply leaves the production Results XML byte-identical', async ({ page }) => {
+  // This E2E pins the apply-stage failure path: apply-to-qti-results
+  // rejects "item-ghost" because it is not present in the
+  // assessment-test, so the failure is raised inside
+  // applyQtiResultsUpdate (the first step of the pipeline), BEFORE
+  // buildResultUpdateResponse / persist / re-parse can touch the
+  // file. The byte-identical assertion on the production Results
+  // XML therefore proves the apply-stage guard holds end to end via
+  // real HTTP.
+  //
+  // The complementary save-before-validate guard (response
+  // validation failure raised by buildResultUpdateResponse BEFORE
+  // persist, e.g. malformed SCORE outcome) is owned by the
+  // in-process pipeline test, not by this E2E:
+  //   src/app/api/workspaces/[id]/results/result-update-pipeline.test.ts
+  // That test pins the in-process call order; this E2E tests
+  // apply-failure + file byte-identity via real HTTP.
   const resultFile = 'assessmentResult-cloze-1.xml';
   await withWorkspace(
     page,

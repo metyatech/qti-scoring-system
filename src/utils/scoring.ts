@@ -3,27 +3,45 @@ import type { QtiItem, QtiItemResult } from '@/utils/qtiParsing';
 /**
  * Float-safe equality for scores. Rubric points and authored SCORE values are
  * decimals (e.g. 0.1 + 0.2), so a strict `===` mis-classifies a full score as
- * partial. The previous integer-scaled `Math.round(a * 10^n)` design was
- * fundamentally broken: it capped the scale at 6 (so 0.0000004 truncated to 0)
- * and parsed `value.toString()` for the scale, which silently mis-categorised
- * numbers in scientific notation (e.g. `4e-7` is "no decimal point" and
- * therefore scale 0).
+ * partial: in IEEE-754, `0.1 + 0.2 === 0.30000000000000004`, so `0.3 !== max`
+ * even when the SCORE is genuinely 0.3. A naive "round to N decimals" scheme
+ * is also wrong: `0.0000004` and `0.00000040` are the same value but a fixed
+ * 6-decimal scale would either drop `0.0000004` to 0 or stop short of
+ * authorable precision, and scientific-notation inputs like `4e-7` confuse any
+ * scheme that infers the scale from `toString()`.
  *
- * This implementation compares the relative + absolute difference against a
- * small multiple of `Number.EPSILON`. It only ever returns true when the
- * operands are bit-identical, a few ULPs apart (so `0.1 + 0.2` ≈ 0.3), or
- * essentially zero. Any genuinely different decimal — e.g. 0 vs 0.0000004,
- * 0.1234560 vs 0.1234564 — has a difference orders of magnitude larger than
- * the tolerance and is reported as not-equal.
+ * The allowed noise class is round-off from a few additions/multiplications
+ * of representable decimals — i.e. a small multiple of `Number.EPSILON`
+ * (≈ 2^(-52)) of the operand magnitude. The constant `SCORE_EQUAL_ULP_BUDGET`
+ * is that multiple (16, i.e. 16× `Number.EPSILON`), a conservative budget
+ * that absorbs the worst-case accumulation seen in real QTI scoring paths.
+ * Tolerance therefore scales linearly with the magnitude of the operands.
+ *
+ * Earlier revisions of this helper floored the magnitude at `Math.max(1, …)`.
+ * That floor silently injected an absolute tolerance of `Number.EPSILON * 16`
+ * (≈ 3.55e-15) into every comparison, even between values near zero. With
+ * that floor, a rubric point of `1e-16` (or `Number.MIN_VALUE`) was reported
+ * equal to a SCORE of `0`, which made `getEffectiveRubricOutcomes` infer all
+ * rubric criteria as `true` on a 0-point score. The floor is replaced with
+ * `Number.MIN_VALUE` so sub-normal magnitudes keep a vanishingly small
+ * non-zero anchor and genuinely tiny differences are still resolved.
+ *
+ * Concretely:
+ * - `0.1 + 0.2` (≈ `0.30000000000000004`) compares equal to `0.3` — round-off
+ *   from a single addition is well within the budget.
+ * - `0.25 + 0.75` compares equal to `1` — both operands are exactly
+ *   representable binary fractions, so this is bit-identical.
+ * - Integer SCOREs (e.g. 3 against a max of 3) remain exact.
+ * - Genuinely different values are not absorbed:
+ *     * `0` vs `1e-16`           — |diff| is 14 orders of magnitude above the
+ *                                  budget at that magnitude.
+ *     * `0` vs `Number.MIN_VALUE`— same shape: the gap dwarfs the budget.
+ *     * `0.1234560` vs `0.1234564` — |diff| = 4e-7, several orders above the
+ *                                    budget at that magnitude.
+ *     * `0` vs `0.0000004`         — |diff| = 4e-7, far above the budget.
  *
  * Non-finite inputs (`NaN`, `Infinity`, `-Infinity`) never compare equal to
  * anything, so a corrupted score can never be mis-classified as a rubric max.
- *
- * The coefficient (16) is a conservative multiple of `Number.EPSILON`
- * (≈ 2^(-52)) that absorbs at most ~4 ULPs of accumulated float-representation
- * noise from a few additions or multiplications, which is the worst case seen
- * in real QTI scoring paths. It is not a "fixed big epsilon" — the actual
- * tolerance scales linearly with the magnitude of the operands.
  */
 const SCORE_EQUAL_ULP_BUDGET = 16;
 
@@ -31,7 +49,7 @@ const decimalEqual = (a: number, b: number): boolean => {
   if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
   if (Object.is(a, b)) return true;
   const difference = Math.abs(a - b);
-  const magnitude = Math.max(1, Math.abs(a), Math.abs(b));
+  const magnitude = Math.max(Math.abs(a), Math.abs(b), Number.MIN_VALUE);
   return difference <= Number.EPSILON * magnitude * SCORE_EQUAL_ULP_BUDGET;
 };
 
