@@ -29,6 +29,7 @@ const ITEM_XML = `<?xml version="1.0" encoding="UTF-8"?>
 const makeResultXml = (sourcedId: string, candidateName: string, score: number) => `<?xml version="1.0" encoding="UTF-8"?>
 <assessmentResult xmlns="http://www.imsglobal.org/xsd/imsqti_result_v3p0">
   <context sourcedId="${sourcedId}">
+    <sessionIdentifier sourceID="candidateId" identifier="${sourcedId}" />
     <sessionIdentifier sourceID="candidateName" identifier="${candidateName}" />
     <sessionIdentifier sourceID="materialTitle" identifier="Sample Test" />
   </context>
