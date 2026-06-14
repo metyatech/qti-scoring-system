@@ -6,6 +6,11 @@ export default defineConfig({
   expect: {
     timeout: 10_000,
   },
+  // Local Windows runners can saturate the Next.js dev server and
+  // cause timeout-based flakes when too many workers run in parallel.
+  // CI environments pin their own worker count via Playwright's defaults
+  // (and can still override with --workers if needed).
+  workers: process.env.CI ? undefined : 2,
   use: {
     baseURL: 'http://127.0.0.1:3000',
     trace: 'retain-on-failure',
