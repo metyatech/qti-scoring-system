@@ -169,11 +169,11 @@ describe('validateWorkspaceDirWithinRepo', () => {
     const os = await import('os');
     const outside = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'qti-outside-'));
     const realRepo = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'qti-real-repo-'));
-    // Create the canonical layout under realRepo.
-    const insideRel = 'courses/js/exams/mid/result/scoring-workspace';
-    await fsPromises.mkdir(path.join(realRepo, insideRel), { recursive: true });
     // Symlink: realRepo/courses -> outside, so resolving insideRel leaks.
     await fsPromises.symlink(outside, path.join(realRepo, 'courses'));
+    // Create the canonical layout inside the symlink (resolves to `outside`).
+    const insideRel = 'courses/js/exams/mid/result/scoring-workspace';
+    await fsPromises.mkdir(path.join(realRepo, insideRel), { recursive: true });
     try {
       expect(() => validateWorkspaceDirWithinRepo(realRepo, insideRel)).toThrow();
     } finally {
