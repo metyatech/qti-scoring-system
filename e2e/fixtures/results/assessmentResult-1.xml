@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <assessmentResult xmlns="http://www.imsglobal.org/xsd/imsqti_result_v3p0">
   <context sourcedId="e2e-user">
+    <sessionIdentifier sourceID="candidateId" identifier="e2e-user-1" />
     <sessionIdentifier sourceID="candidateName" identifier="E2E User" />
     <sessionIdentifier sourceID="materialTitle" identifier="E2E Assessment" />
   </context>
