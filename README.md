@@ -120,7 +120,52 @@ returns a 500 error.
 - Verify: `npm run verify` (runs lint, test, test:e2e, typecheck, and audit)
 
 ## Health and Monitoring
-- Health check endpoint: `/api/health` (returns JSON status)
+
+`GET /api/health` returns a runtime identity envelope so the `course-exams`
+grading workflow can verify that a running qti-scoring-system process is the
+one it spawned (port + repo-root + workspace-index + apiVersion).
+
+### Required environment variables
+
+| Variable                              | Purpose                                                |
+| ------------------------------------- | ------------------------------------------------------ |
+| `QTI_SCORING_SYSTEM_INSTANCE_ID`      | Unique id of the spawned process (any non-empty value). |
+| `QTI_SCORING_SYSTEM_REPO_ROOT`        | Absolute path to the repo root served by this process. |
+| `QTI_SCORING_SYSTEM_WORKSPACE_INDEX`  | Absolute path to the workspace-index file.             |
+
+If any of the three env vars is missing or empty, `configured` is `false` and
+the per-env `instanceId` / `repoRootHash` / `workspaceIndexHash` field is the
+empty string. The endpoint always returns HTTP 200.
+
+### Response schema
+
+```json
+{
+  "service": "qti-scoring-system",
+  "apiVersion": 1,
+  "configured": true,
+  "pid": 12345,
+  "instanceId": "<UUID>",
+  "repoRootHash": "sha256:<hex>",
+  "workspaceIndexHash": "sha256:<hex>"
+}
+```
+
+`apiVersion` is the exported constant
+`QTI_SCORING_SYSTEM_HEALTH_API_VERSION` from `src/app/api/health/route.ts` and
+can be imported by `course-exams` for cross-check.
+
+The hashes are `sha256:` of the UTF-8 encoded, normalised path: `path.posix.resolve`
++ backslash-to-slash, lowercased on Windows. The raw path string is never
+echoed in the body.
+
+### Response headers (always set, cache-disabled)
+
+```
+Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+Pragma: no-cache
+Expires: 0
+```
 
 ## Accessibility
 Automated accessibility checks are performed as part of the E2E test suite using `@axe-core/playwright`.
