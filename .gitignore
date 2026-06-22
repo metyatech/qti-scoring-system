@@ -44,3 +44,6 @@ next-env.d.ts
 
 # workspace data (contains sensitive information)
 /data/
+
+# orchestrator workspace (transient runtime state for the Atlas orchestrator agent)
+.omo/
