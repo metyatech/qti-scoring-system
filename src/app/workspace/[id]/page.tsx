@@ -8,6 +8,8 @@ import { applyResponsesToPromptHtml } from "@/utils/qtiBlankResponses";
 import ExplanationPanel from "@/components/ExplanationPanel";
 import ReportDownloadButton from "@/components/ReportDownloadButton";
 import AutoResizeTextarea from "@/components/AutoResizeTextarea";
+import EdgeScrollCandidateNavigator from "@/components/EdgeScrollCandidateNavigator";
+import ItemCandidateCard from "@/components/ItemCandidateCard";
 import RubricScoringControl from "@/components/RubricScoringControl";
 import {
   QtiItem,
@@ -18,11 +20,12 @@ import {
   parseQtiResultsXml,
   remapResultToAssessmentItems,
 } from "@/utils/qtiParsing";
+import { formatResponse } from "@/utils/formatResponse";
 import { getEffectiveRubricOutcomes, getItemMaxScore, getItemScore } from "@/utils/scoring";
 import { computeOptimisticItemResultScore } from "@/utils/optimisticScore";
 import { buildCriteriaUpdate, updateItemComment } from "@/utils/resultUpdates";
+import { makeCommentKey, makeCriterionKey } from "@/utils/workspaceKeys";
 import { useHighlightCodeBlocks } from "@/hooks/useHighlightCodeBlocks";
-import { useIncrementalList } from "@/hooks/useIncrementalList";
 
 const fetchFileText = async (workspaceId: string, kind: string, name: string) => {
   const res = await fetch(`/api/workspaces/${workspaceId}/files?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}`);
@@ -54,11 +57,6 @@ export default function WorkspacePage() {
   const highlightDeps = useMemo(
     () => [viewMode, currentResultIndex, currentItemIndex, showItemPreview, items.length],
     [viewMode, currentResultIndex, currentItemIndex, showItemPreview, items.length]
-  );
-  const resultListKey = `${viewMode}:${currentItemIndex}`;
-  const { visibleItems: visibleResults, isComplete: isResultListComplete } = useIncrementalList(
-    results,
-    { batchSize: 10, delayMs: 16, resetKey: resultListKey }
   );
 
   useEffect(() => {
@@ -188,10 +186,6 @@ export default function WorkspacePage() {
     setTimeout(() => setLoopMessage(null), 2000);
   };
 
-  const makeCommentKey = (resultFile: string, itemId: string) => `${resultFile}::${itemId}::comment`;
-  const makeCriterionKey = (resultFile: string, itemId: string, criterionIndex: number) =>
-    `${resultFile}::${itemId}::criterion::${criterionIndex}`;
-
   const startSaveFeedback = (key: string) => {
     const existing = saveStatusTimersRef.current[key];
     if (existing) {
@@ -267,18 +261,18 @@ export default function WorkspacePage() {
     setCurrentItemIndex(prevIndex);
   };
 
-  const formatResponse = (item: QtiItem, itemResult?: QtiResult["itemResults"][string]) => {
-    if (!itemResult || itemResult.response === null || itemResult.response === undefined) {
-      return "（回答なし）";
-    }
-    if (Array.isArray(itemResult.response)) {
-      return itemResult.response.join(" / ");
-    }
-    if (item.type === "choice") {
-      const choice = item.choices.find((c) => c.identifier === itemResult.response);
-      return choice ? `${choice.text} (${itemResult.response})` : String(itemResult.response);
-    }
-    return String(itemResult.response);
+  // Navigation helpers used by the item-view scroll gate. Unlike
+  // `nextCandidate`/`prevCandidate` (used by the "受講者ごと" buttons),
+  // these never wrap around — the scroll gate surfaces a boundary message
+  // when at the first/last candidate.
+  const nextItemViewCandidate = () => {
+    if (!results.length) return;
+    setCurrentResultIndex((prev) => Math.min(results.length - 1, prev + 1));
+  };
+
+  const prevItemViewCandidate = () => {
+    if (!results.length) return;
+    setCurrentResultIndex((prev) => Math.max(0, prev - 1));
   };
 
   const updateCriteria = async (
@@ -778,83 +772,26 @@ export default function WorkspacePage() {
                 data-testid="item-result-progress"
                 aria-live="polite"
               >
-                受講者: {visibleResults.length} / {results.length}
-                {!isResultListComplete && " (読み込み中...)"}
+                受講者 {currentResultIndex + 1} / {results.length}
               </div>
-              {visibleResults.map((result) => {
-                const itemResult = result.itemResults[currentItem.identifier];
-                const responseText = formatResponse(currentItem, itemResult);
-                const comment = itemResult?.comment ?? "";
-                const itemScore = getItemScore(currentItem, itemResult);
-                const commentKey = makeCommentKey(result.fileName, currentItem.identifier);
-                const commentStatus = saveStatusByKey[commentKey];
-                return (
-                  <div key={result.fileName} className="bg-white border rounded-lg p-6 shadow-sm">
-                    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                      <div className="text-base font-semibold text-gray-800">{result.candidateName}</div>
-                      {currentItem.rubric.length > 0 && (
-                        <span className="text-sm text-gray-600">
-                          得点: <span className="text-blue-600">{itemScore ?? 0}</span> / {getItemMaxScore(currentItem)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500 text-sm text-gray-800 whitespace-pre-wrap">
-                      {responseText}
-                    </div>
-
-                    {currentItem.rubric.length > 0 && (
-                      <div className="mt-5 border-t pt-4">
-                        <div className="text-xs text-gray-500 mb-2">採点基準</div>
-                        <div className="space-y-2">
-                          {currentItem.rubric.map((criterion) => {
-                            const value = getEffectiveRubricOutcomes(currentItem, itemResult)[criterion.index];
-                            const criterionKey = makeCriterionKey(
-                              result.fileName,
-                              currentItem.identifier,
-                              criterion.index
-                            );
-                            const criterionStatus = saveStatusByKey[criterionKey];
-                            return (
-                              <RubricScoringControl
-                                key={criterion.index}
-                                item={currentItem}
-                                criterion={criterion}
-                                value={value}
-                                saveStatus={criterionStatus}
-                                saveStatusTestId={`save-status-${result.fileName}-${currentItem.identifier}-criterion-${criterion.index}`}
-                                onChange={(next) =>
-                                  updateRubricOutcome(result.fileName, currentItem.identifier, criterion.index, next)
-                                }
-                              />
-                            );
-                          })}
-                        </div>
-                        <div className="mt-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <label className="block text-xs font-medium text-gray-600">コメント</label>
-                            {commentStatus && (
-                              <span
-                                className={`text-xs ${commentStatus === "saving" ? "text-gray-500" : "text-green-600"}`}
-                                data-testid={`save-status-${result.fileName}-${currentItem.identifier}-comment`}
-                                aria-live="polite"
-                              >
-                                {commentStatus === "saving" ? "保存中..." : "保存しました"}
-                              </span>
-                            )}
-                          </div>
-                          <AutoResizeTextarea
-                            className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            rows={2}
-                            value={comment}
-                            onChange={(value) => handleCommentChange(result.fileName, currentItem.identifier, value)}
-                            onBlur={(value) => updateResultComment(result.fileName, currentItem.identifier, value)}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              <EdgeScrollCandidateNavigator
+                currentIndex={currentResultIndex}
+                totalCount={results.length}
+                resetKey={`${currentItem.identifier}:${currentResult.fileName}`}
+                onNavigatePrevious={prevItemViewCandidate}
+                onNavigateNext={nextItemViewCandidate}
+              >
+                <ItemCandidateCard
+                  item={currentItem}
+                  result={currentResult}
+                  resultIndex={currentResultIndex}
+                  resultCount={results.length}
+                  saveStatusByKey={saveStatusByKey}
+                  onToggleCriterion={updateRubricOutcome}
+                  onCommentChange={handleCommentChange}
+                  onCommentBlur={updateResultComment}
+                />
+              </EdgeScrollCandidateNavigator>
             </div>
           </div>
         )}

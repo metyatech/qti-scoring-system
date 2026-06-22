@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { autoResizeTextarea } from "@/utils/textarea";
 
 interface AutoResizeTextareaProps {
@@ -18,8 +18,16 @@ export default function AutoResizeTextarea({
 }: AutoResizeTextareaProps) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
 
-  useLayoutEffect(() => {
-    autoResizeTextarea(ref.current);
+  // External `value` changes (e.g. candidate switch) are coalesced into a
+  // single paint-block-free resize via requestAnimationFrame. useLayoutEffect
+  // is intentionally avoided here: switching candidates would otherwise force
+  // the browser to lay out many off-screen textareas synchronously on the
+  // critical path and block the main thread.
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      autoResizeTextarea(ref.current);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [value]);
 
   return (

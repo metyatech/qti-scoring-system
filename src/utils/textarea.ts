@@ -1,5 +1,8 @@
 export const autoResizeTextarea = (element: HTMLTextAreaElement | null): void => {
   if (!element) return;
-  element.style.height = 'auto';
-  element.style.height = `${element.scrollHeight}px`;
+  element.style.height = "auto";
+  const nextHeight = `${element.scrollHeight}px`;
+  if (element.style.height !== nextHeight) {
+    element.style.height = nextHeight;
+  }
 };
