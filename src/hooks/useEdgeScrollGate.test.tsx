@@ -171,6 +171,72 @@ describe("useEdgeScrollGate", () => {
     expect(readGate()).toBeNull();
   });
 
+  it("confirms navigation even if the confirmation UI changes the measured scroll edge", () => {
+    // Reproduces the real-device bug: after the first edge scroll opens the
+    // confirm gate, a layout shift (e.g. the confirmation overlay or any
+    // reflow) moves the measured scroll position away from the bottom edge.
+    // The second scroll in the same direction must still navigate, because an
+    // open confirm gate is processed BEFORE the edge is re-measured.
+    const onNavigateNext = vi.fn();
+    const onNavigatePrevious = vi.fn();
+    const shared = {
+      totalCount: 5,
+      currentIndex: 1,
+      clientHeight: 200,
+      onNavigatePrevious,
+      onNavigateNext,
+    };
+
+    // First render: pinned to the bottom edge (800 + 200 === 1000).
+    renderHarness(root, { ...shared, scrollTop: 800, scrollHeight: 1000 });
+    dispatchWheel(root, 100);
+    expect(readGate()?.kind).toBe("confirm");
+    expect(onNavigateNext).not.toHaveBeenCalled();
+
+    // Re-render so the region no longer reports atBottom:
+    // 790 + 200 = 990 < 1100 - EDGE_EPSILON_PX.
+    renderHarness(root, { ...shared, scrollTop: 790, scrollHeight: 1100 });
+
+    act(() => {
+      vi.advanceTimersByTime(200); // > MIN_CONFIRM_DELAY_MS (180)
+    });
+
+    const prevented = dispatchWheel(root, 100);
+    expect(prevented).toBe(true);
+    expect(onNavigateNext).toHaveBeenCalledTimes(1);
+    expect(readGate()).toBeNull();
+  });
+
+  it("confirms previous navigation even if the measured top edge shifts", () => {
+    const onNavigateNext = vi.fn();
+    const onNavigatePrevious = vi.fn();
+    const shared = {
+      totalCount: 5,
+      currentIndex: 2,
+      clientHeight: 200,
+      onNavigatePrevious,
+      onNavigateNext,
+    };
+
+    // First render: pinned to the top edge.
+    renderHarness(root, { ...shared, scrollTop: 0, scrollHeight: 1000 });
+    dispatchWheel(root, -100);
+    expect(readGate()?.kind).toBe("confirm");
+    expect(readGate()?.direction).toBe("previous");
+    expect(onNavigatePrevious).not.toHaveBeenCalled();
+
+    // Re-render so the region no longer reports atTop (scrollTop moved down).
+    renderHarness(root, { ...shared, scrollTop: 50, scrollHeight: 1100 });
+
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    dispatchWheel(root, -100);
+    expect(onNavigatePrevious).toHaveBeenCalledTimes(1);
+    expect(readGate()).toBeNull();
+  });
+
   it("does not navigate when the second edge scroll arrives within the min confirm delay", () => {
     const props = baseProps();
     props.scrollTop = 800;

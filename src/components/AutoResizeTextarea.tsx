@@ -7,6 +7,7 @@ interface AutoResizeTextareaProps {
   onBlur?: (value: string) => void;
   className?: string;
   rows?: number;
+  id?: string;
 }
 
 export default function AutoResizeTextarea({
@@ -15,6 +16,7 @@ export default function AutoResizeTextarea({
   onBlur,
   className,
   rows = 2,
+  id,
 }: AutoResizeTextareaProps) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
 
@@ -33,6 +35,7 @@ export default function AutoResizeTextarea({
   return (
     <textarea
       ref={ref}
+      id={id}
       className={className}
       rows={rows}
       value={value}

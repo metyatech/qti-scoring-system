@@ -252,3 +252,97 @@ test('item card scroll gate survives ctrlKey wheel events (zoom passthrough)', a
   // fixture path referenced to keep helper tree-shaking honest.
   expect(path.basename(fixtureRoot)).toMatch(/ctrlkey-fixture$/);
 });
+
+test('showing the edge-scroll gate does not change the scroll content height', async ({
+  page,
+}, testInfo) => {
+  const fixtureRoot = testInfo.outputPath('gate-overlay-fixture');
+  const { assessmentDir, resultFiles } = await buildLargeAssessmentFixture(
+    fixtureRoot,
+    5
+  );
+
+  await withWorkspaceFromPaths(
+    page,
+    'E2E Gate Overlay',
+    assessmentDir,
+    resultFiles,
+    async (workspaceId) => {
+      await page.goto(`/workspace/${workspaceId}`);
+      await expect(cardLocator(page)).toHaveCount(1);
+
+      // Snap to the bottom edge and record the scroll height BEFORE the gate.
+      const bottom = await scrollMetrics(page);
+      await setScrollTop(page, bottom.scrollHeight);
+      const beforeScrollHeight = (await scrollMetrics(page)).scrollHeight;
+
+      // The first wheel opens the confirm gate (rendered as an overlay
+      // OUTSIDE the scroll region).
+      await scrollRegion(page).dispatchEvent('wheel', { deltaY: 100 });
+      await expect(gateMessage(page)).toBeVisible();
+      await expect(gateMessage(page)).toHaveAttribute('data-gate-kind', 'confirm');
+
+      // The overlay must not push the scroll content taller; otherwise the
+      // second wheel would read a fresh non-edge position and never navigate.
+      const afterScrollHeight = (await scrollMetrics(page)).scrollHeight;
+      expect(afterScrollHeight).toBe(beforeScrollHeight);
+
+      // And the second wheel still advances the candidate.
+      await page.waitForTimeout(220);
+      await scrollRegion(page).dispatchEvent('wheel', { deltaY: 100 });
+      await expect(cardCounter(page)).toContainText('受講者 2 / 5');
+    }
+  );
+});
+
+test('a real mouse wheel at the bottom edge advances to the next candidate', async ({
+  page,
+}, testInfo) => {
+  // A small fixture is enough: the bug is about a single confirmed advance, so
+  // we only need two candidates. Keeping it light avoids loading the dev
+  // server when the rest of the suite runs in parallel.
+  const fixtureRoot = testInfo.outputPath('mouse-wheel-fixture');
+  const { assessmentDir, resultFiles } = await buildLargeAssessmentFixture(
+    fixtureRoot,
+    3
+  );
+
+  await withWorkspaceFromPaths(
+    page,
+    'E2E Mouse Wheel',
+    assessmentDir,
+    resultFiles,
+    async (workspaceId) => {
+      await page.goto(`/workspace/${workspaceId}`);
+      await expect(cardCounter(page)).toContainText('受講者 1 / 3');
+
+      // Pin to the bottom edge, then drive a real (not synthetic) wheel via
+      // the Playwright mouse so we exercise the same code path a user hits.
+      const metrics = await scrollMetrics(page);
+      await setScrollTop(page, metrics.scrollHeight);
+
+      // Hover the centre of the VISIBLE portion of the scroll region so the
+      // trusted wheel event is delivered to it. The region is taller than the
+      // viewport (max-h plus the toolbar above), so its geometric centre can
+      // fall below the fold; clamp the target to the on-screen area.
+      const box = await scrollRegion(page).boundingBox();
+      if (!box) throw new Error('scroll region has no bounding box');
+      const viewport = page.viewportSize();
+      if (!viewport) throw new Error('no viewport size');
+      const visibleTop = Math.max(box.y, 0);
+      const visibleBottom = Math.min(box.y + box.height, viewport.height);
+      const targetY = (visibleTop + visibleBottom) / 2;
+      await page.mouse.move(box.x + box.width / 2, targetY);
+
+      // First real wheel opens the confirm gate.
+      await page.mouse.wheel(0, 100);
+      await expect(gateMessage(page)).toBeVisible();
+      await expect(cardCounter(page)).toContainText('受講者 1 / 3');
+
+      // Second real wheel after the confirm delay advances the candidate.
+      await page.waitForTimeout(220);
+      await page.mouse.wheel(0, 100);
+      await expect(cardCounter(page)).toContainText('受講者 2 / 3');
+    }
+  );
+});

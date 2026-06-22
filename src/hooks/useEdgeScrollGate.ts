@@ -147,10 +147,36 @@ export const useEdgeScrollGate = (
       const direction: EdgeScrollGateDirection =
         event.deltaY > 0 ? "next" : "previous";
       const callbacks = callbacksRef.current;
-      const isAtBoundary =
-        direction === "next"
-          ? callbacks.currentIndex >= callbacks.totalCount - 1
-          : callbacks.currentIndex <= 0;
+      const now =
+        typeof performance !== "undefined" && typeof performance.now === "function"
+          ? performance.now()
+          : Date.now();
+
+      // Priority path: when a confirm gate in the SAME direction is already
+      // open, the user has committed to navigating. Process the second scroll
+      // before re-measuring the edge. The confirmation UI is an overlay that
+      // does not change `scrollHeight`, but even if some layout shift moved
+      // the measured edge, an open confirm gate must still advance. This is
+      // the core fix for "the confirm message appears but a second scroll
+      // never moves to the next candidate".
+      const active = gateRef.current;
+      if (active && active.direction === direction && active.kind === "confirm") {
+        // Swallow the wheel so the browser does not bounce the outer page.
+        event.preventDefault();
+        const elapsed = now - active.startedAt;
+        if (elapsed < MIN_CONFIRM_DELAY_MS) {
+          // Too soon after the first scroll: keep the gate open but do not
+          // navigate. This filters accidental double-flicks.
+          return;
+        }
+        closeGate();
+        if (direction === "next") {
+          callbacks.onNavigateNext();
+        } else {
+          callbacks.onNavigatePrevious();
+        }
+        return;
+      }
 
       const element = scrollRef.current;
       if (!element) {
@@ -179,38 +205,23 @@ export const useEdgeScrollGate = (
       // is the very behavior we are replacing.
       event.preventDefault();
 
-      const active = gateRef.current;
-      const now =
-        typeof performance !== "undefined" && typeof performance.now === "function"
-          ? performance.now()
-          : Date.now();
+      const isAtBoundary =
+        direction === "next"
+          ? callbacks.currentIndex >= callbacks.totalCount - 1
+          : callbacks.currentIndex <= 0;
 
       if (isAtBoundary) {
         // At the first/last candidate: never navigate. Show the boundary
         // hint and reset any prior confirm gate so a fresh edge flick is
-        // required after backing off.
+        // required after backing off. Boundary gates are NOT short-circuited
+        // by the priority path above, so a second scroll re-shows the hint
+        // and still does not navigate.
         openGate({
           direction,
           kind: "boundary",
           message: BOUNDARY_MESSAGE[direction],
           startedAt: now,
         });
-        return;
-      }
-
-      if (active && active.direction === direction && active.kind === "confirm") {
-        const elapsed = now - active.startedAt;
-        if (elapsed < MIN_CONFIRM_DELAY_MS) {
-          // Too soon after the first scroll: keep the gate open but do not
-          // navigate. This filters accidental double-flicks.
-          return;
-        }
-        closeGate();
-        if (direction === "next") {
-          callbacks.onNavigateNext();
-        } else {
-          callbacks.onNavigatePrevious();
-        }
         return;
       }
 

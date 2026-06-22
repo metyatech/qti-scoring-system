@@ -91,20 +91,28 @@ export default function EdgeScrollCandidateNavigator({
     [onWheel]
   );
 
-  const toneClass =
+  // The gate hint is rendered as an absolutely-positioned overlay OUTSIDE the
+  // scrollable element. Keeping it out of the scroll flow means showing the
+  // hint never changes the scroll region's `scrollHeight`; the second wheel
+  // therefore still reads the same edge metrics (and the hook's priority path
+  // navigates regardless). `pointer-events-none` ensures the overlay never
+  // swallows wheel/click input meant for the card underneath.
+  const overlayToneClass =
     gate?.kind === "boundary"
-      ? "bg-gray-100 border-gray-300 text-gray-700"
-      : "bg-yellow-100 border-yellow-300 text-yellow-800";
+      ? "bg-white text-slate-700 ring-1 ring-slate-200"
+      : "bg-slate-900/90 text-white ring-1 ring-white/20";
 
   return (
-    <div
-      ref={scrollRef}
-      data-testid="item-card-scroll-region"
-      tabIndex={0}
-      onWheel={handleWheel}
-      className="relative overflow-y-auto overscroll-contain max-h-[calc(100vh-14rem)] focus:outline-none focus:ring-2 focus:ring-blue-500"
-    >
-      {children}
+    <div className="relative">
+      <div
+        ref={scrollRef}
+        data-testid="item-card-scroll-region"
+        tabIndex={0}
+        onWheel={handleWheel}
+        className="overflow-y-auto overscroll-contain max-h-[calc(100vh-14rem)] rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        {children}
+      </div>
       {gate !== null && (
         <div
           role="status"
@@ -112,9 +120,14 @@ export default function EdgeScrollCandidateNavigator({
           data-testid="edge-scroll-gate-message"
           data-gate-direction={gate.direction}
           data-gate-kind={gate.kind}
-          className={`sticky bottom-0 left-0 right-0 mt-4 px-3 py-2 border rounded-md text-sm text-center ${toneClass}`}
+          className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-4"
         >
-          {gate.message}
+          <div
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium shadow-lg ${overlayToneClass}`}
+          >
+            <span aria-hidden="true">{gate.direction === "next" ? "↓" : "↑"}</span>
+            <span>{gate.message}</span>
+          </div>
         </div>
       )}
     </div>
