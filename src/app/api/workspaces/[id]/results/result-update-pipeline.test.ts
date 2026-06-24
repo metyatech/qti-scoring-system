@@ -33,19 +33,19 @@ const buildHappyDependencies = (response: ResultUpdateResponse) => {
     calls.push(STEP_NAMES.apply);
     return '<updated/>';
   });
-  const readAssessmentTestXml = vi.fn(async (_path: string) => {
+  const readAssessmentTestXml = vi.fn(async () => {
     calls.push(STEP_NAMES.readAssessment);
     return '<assessment-test/>';
   });
-  const parseAssessmentTestXml = vi.fn((_xml: string) => {
+  const parseAssessmentTestXml = vi.fn(() => {
     calls.push(STEP_NAMES.parseAssessment);
     return refs;
   });
-  const buildResultUpdateResponse = vi.fn((_input: unknown) => {
+  const buildResultUpdateResponse = vi.fn(() => {
     calls.push(STEP_NAMES.validateResponse);
     return response;
   });
-  const updateResultXml = vi.fn(async (_dir: string, _file: string, _xml: string) => {
+  const updateResultXml = vi.fn(async () => {
     calls.push(STEP_NAMES.persist);
   });
   return {
@@ -109,11 +109,14 @@ describe('executeResultUpdate pipeline', () => {
     // The validator and the persister must receive the same updatedXml string,
     // byte-for-byte. This is the strongest end-to-end guarantee the route
     // hands the API caller.
-    const validatorArg = built.buildResultUpdateResponse.mock.calls[0]?.[0] as { updatedXml: string };
-    expect(validatorArg.updatedXml).toBe('<updated/>');
-    const persistArg = built.updateResultXml.mock.calls[0]?.[2];
-    expect(persistArg).toBe('<updated/>');
-    expect(persistArg).toBe(validatorArg.updatedXml);
+    expect(built.buildResultUpdateResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ updatedXml: '<updated/>' })
+    );
+    expect(built.updateResultXml).toHaveBeenCalledWith(
+      built.dependencies.workspaceDir,
+      input.fileName,
+      '<updated/>'
+    );
   });
 
   it('validate-response failure: stops before persist and rejects with the validator error', async () => {
