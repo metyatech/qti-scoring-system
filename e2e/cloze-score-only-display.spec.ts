@@ -108,7 +108,11 @@ test.describe('cloze SCORE-only display (fix #3)', () => {
       await expect(upgradeButtons).toHaveCount(2);
 
       // Click the first one and wait for the PUT to land.
-      const putResponse = waitForResultsUpdate(page);
+      const putResponse = waitForResultsUpdate(page, {
+        workspaceId,
+        resultFile: 'assessmentResult-cloze-1.xml',
+        itemIdentifier: 'item-1',
+      });
       await upgradeButtons.first().click();
       const response = await putResponse;
       expect(response.status()).toBe(200);

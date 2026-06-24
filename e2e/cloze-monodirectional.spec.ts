@@ -13,7 +13,11 @@ test('cloze rubric upgrade reconciles with the server-confirmed value', async ({
       await expect(page.getByRole('button', { name: '〇' })).toHaveCount(0);
       await expect(page.getByRole('button', { name: '×' })).toHaveCount(0);
 
-      const upgradeResponse = waitForResultsUpdate(page);
+      const upgradeResponse = waitForResultsUpdate(page, {
+        workspaceId,
+        resultFile: 'assessmentResult-cloze-1.xml',
+        itemIdentifier: 'item-1',
+      });
       await page.getByRole('button', { name: '正答に変更' }).first().click();
       const response = await upgradeResponse;
       expect(response.status()).toBe(200);

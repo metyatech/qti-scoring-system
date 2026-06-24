@@ -57,7 +57,11 @@ test('cloze rubric upgrade PUTs under the remapped identifier and rewrites the s
           request.method() === 'PUT' &&
           request.url().includes(`/api/workspaces/${workspaceId}/results`)
       );
-      const responsePromise = waitForResultsUpdate(page);
+      const responsePromise = waitForResultsUpdate(page, {
+        workspaceId,
+        resultFile: 'assessmentResult-remap-1.xml',
+        itemIdentifier: 'question-source-id',
+      });
 
       await upgradeButtons.first().click();
 

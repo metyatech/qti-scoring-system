@@ -19,11 +19,17 @@ test('choice rubric is rendered read-only and comments still round-trip', async 
       await expect(rubricBlock.getByText('編集不可')).toBeVisible();
 
       // Comments remain editable. Type something and confirm it round-trips.
-      const textarea = page.locator('textarea').first();
+      const textarea = page.getByLabel('コメント');
       await expect(textarea).toBeVisible();
       await textarea.fill('Choice comment E2E');
-      const saveComment = waitForResultsUpdate(page);
-      await page.getByRole('heading', { name: 'QTI 3.0 採点システム' }).click();
+      await expect(textarea).toHaveValue('Choice comment E2E');
+      const saveComment = waitForResultsUpdate(page, {
+        workspaceId,
+        resultFile: 'assessmentResult-choice-1.xml',
+        itemIdentifier: 'item-1',
+        comment: 'Choice comment E2E',
+      });
+      await textarea.blur();
       const response = await saveComment;
       expect(response.status()).toBe(200);
 
@@ -34,7 +40,7 @@ test('choice rubric is rendered read-only and comments still round-trip', async 
 
       await page.reload();
       await expect(page.getByRole('heading', { name: 'E2E Choice Item' })).toBeVisible();
-      await expect(page.locator('textarea').first()).toHaveValue('Choice comment E2E');
+      await expect(page.getByLabel('コメント')).toHaveValue('Choice comment E2E');
     },
     'assessmentResult-choice-1.xml',
     'assessment-choice'

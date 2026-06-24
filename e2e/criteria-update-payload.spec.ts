@@ -10,7 +10,11 @@ test('criteria update request omits criterionText payload', async ({ page }) => 
         request.method() === 'PUT' &&
         request.url().includes(`/api/workspaces/${workspaceId}/results`)
     );
-    const responsePromise = waitForResultsUpdate(page);
+    const responsePromise = waitForResultsUpdate(page, {
+      workspaceId,
+      resultFile: 'assessmentResult-1.xml',
+      itemIdentifier: 'item-1',
+    });
 
     await page.getByRole('button', { name: '〇' }).first().click();
 

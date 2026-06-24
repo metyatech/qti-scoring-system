@@ -217,7 +217,11 @@ test('partial-score SCORE never drops below the explicit value during the PUT (o
           request.method() === 'PUT' &&
           request.url().includes(`/api/workspaces/${workspaceId}/results`)
       );
-      const respPromise = waitForResultsUpdate(page);
+      const respPromise = waitForResultsUpdate(page, {
+        workspaceId,
+        resultFile,
+        itemIdentifier: 'item-1',
+      });
 
       // Click "正答に変更" on the 1-point criterion. The optimistic
       // helper must keep the displayed score at 2 (NOT drop to 1 or 0)

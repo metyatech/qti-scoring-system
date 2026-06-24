@@ -53,8 +53,12 @@ test('item quick preview opens in item view', async ({ page }) => {
 });
 
 test('save feedback appears after scoring update', async ({ page }) => {
-  await withWorkspace(page, 'E2E Save Feedback', async () => {
-    const saveResponse = waitForResultsUpdate(page);
+  await withWorkspace(page, 'E2E Save Feedback', async (workspaceId) => {
+    const saveResponse = waitForResultsUpdate(page, {
+      workspaceId,
+      resultFile: 'assessmentResult-1.xml',
+      itemIdentifier: 'item-1',
+    });
     await page.getByRole('button', { name: '〇' }).first().click();
     const response = await saveResponse;
     expect(response.status()).toBe(200);
@@ -114,15 +118,23 @@ test('clearing a comment removes it without errors', async ({ page }) => {
 });
 
 test('rubric changes persist after reload', async ({ page }) => {
-  await withWorkspace(page, 'E2E Rubric Persistence', async () => {
+  await withWorkspace(page, 'E2E Rubric Persistence', async (workspaceId) => {
     const criterionOne = page.getByText('[1] Provides any answer').locator('..');
     const criterionTwo = page.getByText('[2] Explains reasoning').locator('..');
 
-    const saveOne = waitForResultsUpdate(page);
+    const saveOne = waitForResultsUpdate(page, {
+      workspaceId,
+      resultFile: 'assessmentResult-1.xml',
+      itemIdentifier: 'item-1',
+    });
     await criterionOne.getByRole('button', { name: '〇' }).click();
     expect((await saveOne).status()).toBe(200);
 
-    const saveTwo = waitForResultsUpdate(page);
+    const saveTwo = waitForResultsUpdate(page, {
+      workspaceId,
+      resultFile: 'assessmentResult-1.xml',
+      itemIdentifier: 'item-1',
+    });
     await criterionTwo.getByRole('button', { name: '×' }).click();
     expect((await saveTwo).status()).toBe(200);
 
@@ -139,11 +151,19 @@ test('export includes updated rubric and comment', async ({ page }) => {
   await withWorkspace(page, 'E2E Export', async (workspaceId) => {
     const criterionOne = page.getByText('[1] Provides any answer').locator('..');
     const criterionTwo = page.getByText('[2] Explains reasoning').locator('..');
-    const saveRubricOne = waitForResultsUpdate(page);
+    const saveRubricOne = waitForResultsUpdate(page, {
+      workspaceId,
+      resultFile: 'assessmentResult-1.xml',
+      itemIdentifier: 'item-1',
+    });
     await criterionOne.getByRole('button', { name: '〇' }).click();
     expect((await saveRubricOne).status()).toBe(200);
 
-    const saveRubricTwo = waitForResultsUpdate(page);
+    const saveRubricTwo = waitForResultsUpdate(page, {
+      workspaceId,
+      resultFile: 'assessmentResult-1.xml',
+      itemIdentifier: 'item-1',
+    });
     await criterionTwo.getByRole('button', { name: '×' }).click();
     expect((await saveRubricTwo).status()).toBe(200);
 
