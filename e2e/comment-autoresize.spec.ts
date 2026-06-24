@@ -74,12 +74,12 @@ test('clearing a comment removes it without errors', async ({ page }) => {
     await expect(textarea).toBeVisible();
     await expect(textarea).toHaveValue('Initial comment');
 
-    // Subscribe to the PUT BEFORE we trigger blur. The previous version
-    // called waitForResultsUpdate only on the loose `/api/workspaces/...
-    // /results` URL match, so any unrelated PUT from a parallel worker
-    // could resolve the wait before the actual comment-clear PUT was
-    // issued; pinning workspaceId + resultFile + itemIdentifier + the
-    // empty comment value filters out every other request in the suite.
+    // Subscribe to the exact PUT before we trigger blur. The previous version
+    // matched only the loose `/api/workspaces/.../results` URL, so a future
+    // same-page save request could accidentally satisfy the wait before the
+    // comment-clear request we intended to assert. Pinning workspaceId +
+    // resultFile + itemIdentifier + the empty comment value makes the test
+    // wait for the specific save caused by this blur.
     await textarea.fill('');
     await expect(textarea).toHaveValue('');
 
@@ -90,9 +90,9 @@ test('clearing a comment removes it without errors', async ({ page }) => {
       comment: '',
     });
 
-    // Drive the save through the real onBlur handler instead of clicking
-    // a sibling heading (which made the previous version race with the
-    // browser's focus management and other workers' clicks).
+    // Drive the save through the real onBlur handler instead of clicking a
+    // sibling heading. This removes dependence on layout/focus side effects and
+    // makes the save trigger explicit.
     await textarea.blur();
 
     const response = await saveResponse;
