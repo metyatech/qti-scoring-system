@@ -245,13 +245,55 @@ export const withWorkspace = async (
   }
 };
 
-export const waitForResultsUpdate = (page: Page) =>
-  page.waitForResponse(
-    (response) =>
-      response.request().method() === 'PUT' &&
-      response.url().includes('/api/workspaces/') &&
-      response.url().includes('/results')
-  );
+export type WaitForResultsUpdateOptions = {
+  workspaceId?: string;
+  resultFile?: string;
+  itemIdentifier?: string;
+  comment?: string;
+};
+
+export const waitForResultsUpdate = (
+  page: Page,
+  options: WaitForResultsUpdateOptions = {}
+) =>
+  page.waitForResponse((response) => {
+    const request = response.request();
+    if (request.method() !== 'PUT') return false;
+
+    const url = response.url();
+    if (options.workspaceId) {
+      if (!url.includes(`/api/workspaces/${options.workspaceId}/results`)) return false;
+    } else if (!url.includes('/api/workspaces/') || !url.includes('/results')) {
+      return false;
+    }
+
+    if (!options.resultFile && !options.itemIdentifier && options.comment === undefined) {
+      return true;
+    }
+
+    try {
+      const body = request.postDataJSON() as {
+        resultFile?: string;
+        items?: Array<{ identifier?: string; comment?: string }>;
+      };
+
+      if (options.resultFile && body.resultFile !== options.resultFile) return false;
+
+      if (options.itemIdentifier || options.comment !== undefined) {
+        return Boolean(
+          body.items?.some((item) => {
+            if (options.itemIdentifier && item.identifier !== options.itemIdentifier) return false;
+            if (options.comment !== undefined && item.comment !== options.comment) return false;
+            return true;
+          })
+        );
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  });
 
 // Suppress unused import warnings: keep `assessRoot` and
 // `stripAssessmentExtension` exported in case future tests need them.

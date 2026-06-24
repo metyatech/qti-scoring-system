@@ -66,19 +66,50 @@ test('save feedback appears after scoring update', async ({ page }) => {
 });
 
 test('clearing a comment removes it without errors', async ({ page }) => {
-  await withWorkspace(page, 'E2E Comment Clear', async () => {
-    const textarea = page.locator('textarea').first();
+  await withWorkspace(page, 'E2E Comment Clear', async (workspaceId) => {
+    // Target the candidate comment textarea via its <label htmlFor> wiring
+    // (see ItemCandidateCard.tsx). Only one comment textarea is mounted in
+    // the candidate view, so a plain getByLabel is unambiguous.
+    const textarea = page.getByLabel('コメント');
+    await expect(textarea).toBeVisible();
     await expect(textarea).toHaveValue('Initial comment');
 
-    const saveResponse = waitForResultsUpdate(page);
+    // Subscribe to the PUT BEFORE we trigger blur. The previous version
+    // called waitForResultsUpdate only on the loose `/api/workspaces/...
+    // /results` URL match, so any unrelated PUT from a parallel worker
+    // could resolve the wait before the actual comment-clear PUT was
+    // issued; pinning workspaceId + resultFile + itemIdentifier + the
+    // empty comment value filters out every other request in the suite.
     await textarea.fill('');
-    await page.getByRole('heading', { name: 'QTI 3.0 採点システム' }).click();
+    await expect(textarea).toHaveValue('');
+
+    const saveResponse = waitForResultsUpdate(page, {
+      workspaceId,
+      resultFile: 'assessmentResult-1.xml',
+      itemIdentifier: 'item-1',
+      comment: '',
+    });
+
+    // Drive the save through the real onBlur handler instead of clicking
+    // a sibling heading (which made the previous version race with the
+    // browser's focus management and other workers' clicks).
+    await textarea.blur();
+
     const response = await saveResponse;
     expect(response.status()).toBe(200);
+    await expect(
+      page.getByTestId('save-status-assessmentResult-1.xml-item-1-comment'),
+    ).toContainText('保存しました');
 
+    // After reload the seed value should be gone, and the transient save
+    // status indicator should be absent (the page re-renders without it
+    // until the next save).
     await page.reload();
-    await expect(page.locator('textarea').first()).toHaveValue('');
-    await expect(page.getByTestId('save-status-assessmentResult-1.xml-item-1-comment')).toHaveCount(0);
+    const reloadedTextarea = page.getByLabel('コメント');
+    await expect(reloadedTextarea).toHaveValue('');
+    await expect(
+      page.getByTestId('save-status-assessmentResult-1.xml-item-1-comment'),
+    ).toHaveCount(0);
   });
 });
 
@@ -116,10 +147,16 @@ test('export includes updated rubric and comment', async ({ page }) => {
     await criterionTwo.getByRole('button', { name: '×' }).click();
     expect((await saveRubricTwo).status()).toBe(200);
 
-    const textarea = page.locator('textarea').first();
+    const textarea = page.getByLabel('コメント');
     await textarea.fill('Exported comment');
-    const saveComment = waitForResultsUpdate(page);
-    await page.getByRole('heading', { name: 'QTI 3.0 採点システム' }).click();
+    await expect(textarea).toHaveValue('Exported comment');
+    const saveComment = waitForResultsUpdate(page, {
+      workspaceId,
+      resultFile: 'assessmentResult-1.xml',
+      itemIdentifier: 'item-1',
+      comment: 'Exported comment',
+    });
+    await textarea.blur();
     expect((await saveComment).status()).toBe(200);
 
     const exportResponse = await page.request.get(`/api/workspaces/${workspaceId}/report/zip`);
