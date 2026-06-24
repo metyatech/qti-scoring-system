@@ -9,8 +9,6 @@ export type TextareaMetrics = {
   fitsContent: boolean;
 };
 
-const parseCssPixels = (value: string): number => Number.parseFloat(value) || 0;
-
 export const getTextareaMetrics = async (textarea: Locator): Promise<TextareaMetrics> =>
   textarea.evaluate((node) => {
     const el = node as HTMLTextAreaElement;
