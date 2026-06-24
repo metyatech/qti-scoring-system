@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import JSZip from 'jszip';
 import { cleanupTrackedWorkspaces, withWorkspace, waitForResultsUpdate } from './utils/workspace';
+import { getTextareaMetrics, waitForTextareaToFitContent } from './utils/textarea';
 
 test.afterEach(async ({ page }) => {
   await cleanupTrackedWorkspaces(page.request);
@@ -11,13 +12,33 @@ test('comment textarea auto-resizes with content', async ({ page }) => {
   await withWorkspace(page, 'E2E Auto Resize', async () => {
     await page.getByText('設問ごと').waitFor();
 
-    const textarea = page.locator('textarea').first();
+    // getByLabel('コメント') targets the candidate comment textarea via its
+    // <label htmlFor> wiring (see ItemCandidateCard.tsx). If multiple cards
+    // ever surface the label at once, fall back to the first one.
+    const commentLabel = page.getByLabel('コメント');
+    const textarea = (await commentLabel.count()) > 1 ? commentLabel.first() : commentLabel;
     await expect(textarea).toBeVisible();
+    await expect(textarea).toHaveValue('Initial comment');
 
-    const initialHeight = await textarea.evaluate((el) => el.clientHeight);
-    await textarea.fill('Line 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6');
+    // Sanity-check that the seeded value already fits inside the rendered box
+    // before we ask the textarea to grow.
+    await waitForTextareaToFitContent(textarea);
+    const initialMetrics = await getTextareaMetrics(textarea);
 
-    await expect.poll(async () => textarea.evaluate((el) => el.clientHeight)).toBeGreaterThan(initialHeight);
+    // A long, multi-line comment is needed because a short fill can land
+    // inside the existing row band and produce zero scrollHeight delta.
+    const longComment = Array.from(
+      { length: 12 },
+      (_, index) => `Line ${index + 1}: auto resize stability check`,
+    ).join('\n');
+
+    await textarea.fill(longComment);
+    await expect(textarea).toHaveValue(longComment);
+    await waitForTextareaToFitContent(textarea);
+
+    const grownMetrics = await getTextareaMetrics(textarea);
+    expect(grownMetrics.styleHeightPx).toBeGreaterThan(initialMetrics.styleHeightPx);
+    expect(grownMetrics.scrollHeight).toBeGreaterThan(initialMetrics.scrollHeight);
   });
 });
 

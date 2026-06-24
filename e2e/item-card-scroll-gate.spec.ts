@@ -5,6 +5,7 @@ import {
   cleanupTrackedWorkspaces,
   withWorkspaceFromPaths,
 } from './utils/workspace';
+import { getTextareaMetrics, waitForTextareaToFitContent } from './utils/textarea';
 
 test.afterEach(async ({ page }) => {
   await cleanupTrackedWorkspaces(page.request);
@@ -185,19 +186,29 @@ test('item view renders a single card and the edge-scroll gate swaps candidates'
       expect(beforeComment).toContain('Draft comment for E2E User 01');
 
       // Type extra text into candidate 1's comment to make the textarea
-      // taller.
+      // taller. Use the helper so we assert on the implementation's
+      // `style.height` against `scrollHeight + borderY` instead of the
+      // browser-rounded `clientHeight`, which is sensitive to subpixel layout
+      // and made the previous test flaky.
       const textarea = cardBefore.locator('textarea');
-      const initialHeight = await textarea.evaluate((el) => el.clientHeight);
-      await textarea.fill(beforeComment + '\nextra line 1\nextra line 2\nextra line 3');
-      await expect
-        .poll(async () => textarea.evaluate((el) => el.clientHeight), {
-          timeout: 5000,
-        })
-        .toBeGreaterThan(initialHeight);
+      await waitForTextareaToFitContent(textarea);
+      const initialMetrics = await getTextareaMetrics(textarea);
 
-      // Confirm the auto-resize is satisfied for input-driven growth.
-      const afterFillHeight = await textarea.evaluate((el) => el.clientHeight);
-      expect(afterFillHeight).toBeGreaterThan(initialHeight);
+      const expandedComment = [
+        beforeComment,
+        'extra line 1',
+        'extra line 2',
+        'extra line 3',
+        'extra line 4',
+        'extra line 5',
+      ].join('\n');
+      await textarea.fill(expandedComment);
+      await expect(textarea).toHaveValue(expandedComment);
+      await waitForTextareaToFitContent(textarea);
+
+      const grownMetrics = await getTextareaMetrics(textarea);
+      expect(grownMetrics.styleHeightPx).toBeGreaterThan(initialMetrics.styleHeightPx);
+      expect(grownMetrics.scrollHeight).toBeGreaterThan(initialMetrics.scrollHeight);
 
       // Advance to candidate 2 via the scroll gate end-to-end so we also
       // exercise that path here (covers textarea blur on navigation).
