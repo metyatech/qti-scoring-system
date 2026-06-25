@@ -433,7 +433,7 @@ test('comment autosave warns before internal navigation while save is pending', 
 
     await page.getByRole('button', { name: 'ワークスペース一覧に戻る' }).click();
 
-    await expect(page).toHaveURL(new RegExp(`/workspace/${workspaceId}$`));
+    await expect(page).toHaveURL(new RegExp(`/workspace/${workspaceId}(?:\\?.*)?$`));
 
     releaseSave();
 

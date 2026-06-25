@@ -25,6 +25,11 @@ import { getEffectiveRubricOutcomes, getItemMaxScore, getItemScore } from "@/uti
 import { computeOptimisticItemResultScore } from "@/utils/optimisticScore";
 import { buildCriteriaUpdate, updateItemComment } from "@/utils/resultUpdates";
 import { makeCommentKey, makeCriterionKey } from "@/utils/workspaceKeys";
+import {
+  buildWorkspaceUrlSearch,
+  parseWorkspaceUrlState,
+  resolveWorkspaceUrlState,
+} from "@/utils/workspaceUrlState";
 import { useHighlightCodeBlocks } from "@/hooks/useHighlightCodeBlocks";
 import { useCommentAutoSave } from "@/hooks/useCommentAutoSave";
 import CommentSaveStatusIndicator from "@/components/CommentSaveStatusIndicator";
@@ -130,8 +135,22 @@ export default function WorkspacePage() {
           return { ...result, itemResults: remapped.mappedItemResults };
         });
         setResults(mappedResults);
-        setCurrentResultIndex(0);
-        setCurrentItemIndex(0);
+
+        // Restore view / candidate / item / details panel state from the URL
+        // query, if any. Stale keys fall back to index 0 instead of throwing.
+        const parsedUrlState =
+          typeof window === "undefined"
+            ? {}
+            : parseWorkspaceUrlState(window.location.search);
+        const restoredState = resolveWorkspaceUrlState(
+          parsedUrlState,
+          mappedResults,
+          itemsWithResolvedAssets
+        );
+        setViewMode(restoredState.viewMode);
+        setCurrentResultIndex(restoredState.currentResultIndex);
+        setCurrentItemIndex(restoredState.currentItemIndex);
+        setShowBasicInfo(restoredState.showBasicInfo);
       } catch (err) {
         setError(err instanceof Error ? err.message : "ワークスペースの読み込みに失敗しました");
       } finally {
@@ -172,6 +191,36 @@ export default function WorkspacePage() {
 
   const currentResult = results[currentResultIndex];
   const currentItem = items[currentItemIndex];
+
+  // Reflect the active UI state into the URL query so the same view survives
+  // a reload. We deliberately avoid `router.push` / `router.replace` here:
+  // this is a UI state mirror, not a Next.js navigation, and we do not want
+  // to grow the browser history when the user clicks "次へ".
+  useEffect(() => {
+    if (loading) return;
+    if (!currentResult || !currentItem) return;
+    if (typeof window === "undefined") return;
+
+    const search = buildWorkspaceUrlSearch({
+      viewMode,
+      resultFile: currentResult.fileName,
+      itemId: currentItem.identifier,
+      showBasicInfo,
+    });
+
+    const nextUrl = `${window.location.pathname}${search ? `?${search}` : ""}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+
+    if (currentUrl !== nextUrl) {
+      window.history.replaceState(window.history.state, "", nextUrl);
+    }
+  }, [
+    loading,
+    viewMode,
+    currentResult,
+    currentItem,
+    showBasicInfo,
+  ]);
 
   const totalMaxScore = useMemo(() => items.reduce((sum, item) => sum + getItemMaxScore(item), 0), [items]);
 
