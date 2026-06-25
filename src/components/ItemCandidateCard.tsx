@@ -3,6 +3,8 @@
 import { memo } from "react";
 import AutoResizeTextarea from "@/components/AutoResizeTextarea";
 import RubricScoringControl from "@/components/RubricScoringControl";
+import CommentSaveStatusIndicator from "@/components/CommentSaveStatusIndicator";
+import type { CommentSaveStatus } from "@/hooks/useCommentAutoSave";
 import type { QtiItem, QtiResult } from "@/utils/qtiParsing";
 import { formatResponse } from "@/utils/formatResponse";
 import { getEffectiveRubricOutcomes, getItemMaxScore, getItemScore } from "@/utils/scoring";
@@ -13,7 +15,8 @@ type ItemCandidateCardProps = {
   result: QtiResult;
   resultIndex: number;
   resultCount: number;
-  saveStatusByKey: Record<string, "saving" | "saved">;
+  criterionSaveStatusByKey: Record<string, "saving" | "saved">;
+  commentSaveStatusByKey: Record<string, CommentSaveStatus>;
   onToggleCriterion: (
     resultFile: string,
     itemId: string,
@@ -42,7 +45,8 @@ function ItemCandidateCardImpl({
   result,
   resultIndex,
   resultCount,
-  saveStatusByKey,
+  criterionSaveStatusByKey,
+  commentSaveStatusByKey,
   onToggleCriterion,
   onCommentChange,
   onCommentBlur,
@@ -52,7 +56,7 @@ function ItemCandidateCardImpl({
   const comment = itemResult?.comment ?? "";
   const itemScore = getItemScore(item, itemResult);
   const commentKey = makeCommentKey(result.fileName, item.identifier);
-  const commentStatus = saveStatusByKey[commentKey];
+  const commentStatus = commentSaveStatusByKey[commentKey];
   const rubric = item.rubric;
   const itemMaxScore = getItemMaxScore(item);
 
@@ -107,7 +111,7 @@ function ItemCandidateCardImpl({
                     item.identifier,
                     criterion.index
                   );
-                  const criterionStatus = saveStatusByKey[criterionKey];
+                  const criterionStatus = criterionSaveStatusByKey[criterionKey];
                   return (
                     <RubricScoringControl
                       key={criterion.index}
@@ -134,15 +138,10 @@ function ItemCandidateCardImpl({
                 >
                   コメント
                 </label>
-                {commentStatus && (
-                  <span
-                    className={`text-xs ${commentStatus === "saving" ? "text-slate-500" : "text-emerald-600"}`}
-                    data-testid={`save-status-${result.fileName}-${item.identifier}-comment`}
-                    aria-live="polite"
-                  >
-                    {commentStatus === "saving" ? "保存中..." : "保存しました"}
-                  </span>
-                )}
+                <CommentSaveStatusIndicator
+                  status={commentStatus}
+                  testId={`save-status-${result.fileName}-${item.identifier}-comment`}
+                />
               </div>
               <AutoResizeTextarea
                 id={`comment-input-${result.fileName}-${item.identifier}`}

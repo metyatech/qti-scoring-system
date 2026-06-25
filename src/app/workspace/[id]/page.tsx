@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { QtiWorkspace } from "@/types/qti";
 import { rewriteHtmlImageSources } from "@/utils/assetUrl";
@@ -26,6 +26,8 @@ import { computeOptimisticItemResultScore } from "@/utils/optimisticScore";
 import { buildCriteriaUpdate, updateItemComment } from "@/utils/resultUpdates";
 import { makeCommentKey, makeCriterionKey } from "@/utils/workspaceKeys";
 import { useHighlightCodeBlocks } from "@/hooks/useHighlightCodeBlocks";
+import { useCommentAutoSave } from "@/hooks/useCommentAutoSave";
+import CommentSaveStatusIndicator from "@/components/CommentSaveStatusIndicator";
 
 const fetchFileText = async (workspaceId: string, kind: string, name: string) => {
   const res = await fetch(`/api/workspaces/${workspaceId}/files?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}`);
@@ -51,8 +53,9 @@ export default function WorkspacePage() {
   const [loopMessage, setLoopMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showItemPreview, setShowItemPreview] = useState(false);
-  const [saveStatusByKey, setSaveStatusByKey] = useState<Record<string, "saving" | "saved">>({});
-  const saveStatusTimersRef = useRef<Record<string, number>>({});
+  const [criterionSaveStatusByKey, setCriterionSaveStatusByKey] =
+    useState<Record<string, "saving" | "saved">>({});
+  const criterionSaveStatusTimersRef = useRef<Record<string, number>>({});
 
   const highlightDeps = useMemo(
     () => [viewMode, currentResultIndex, currentItemIndex, showItemPreview, items.length],
@@ -186,17 +189,17 @@ export default function WorkspacePage() {
     setTimeout(() => setLoopMessage(null), 2000);
   };
 
-  const startSaveFeedback = (key: string) => {
-    const existing = saveStatusTimersRef.current[key];
+  const startCriterionSaveFeedback = (key: string) => {
+    const existing = criterionSaveStatusTimersRef.current[key];
     if (existing) {
       window.clearTimeout(existing);
-      delete saveStatusTimersRef.current[key];
+      delete criterionSaveStatusTimersRef.current[key];
     }
-    setSaveStatusByKey((prev) => ({ ...prev, [key]: "saving" }));
+    setCriterionSaveStatusByKey((prev) => ({ ...prev, [key]: "saving" }));
   };
 
-  const finishSaveFeedback = (key: string, status: "saved" | "idle") => {
-    setSaveStatusByKey((prev) => {
+  const finishCriterionSaveFeedback = (key: string, status: "saved" | "idle") => {
+    setCriterionSaveStatusByKey((prev) => {
       const next = { ...prev };
       if (status === "idle") {
         delete next[key];
@@ -207,21 +210,23 @@ export default function WorkspacePage() {
     });
     if (status === "saved") {
       const timer = window.setTimeout(() => {
-        setSaveStatusByKey((prev) => {
+        setCriterionSaveStatusByKey((prev) => {
           const next = { ...prev };
           delete next[key];
           return next;
         });
-        delete saveStatusTimersRef.current[key];
+        delete criterionSaveStatusTimersRef.current[key];
       }, 2000);
-      saveStatusTimersRef.current[key] = timer;
+      criterionSaveStatusTimersRef.current[key] = timer;
     }
   };
 
   useEffect(() => {
+    const timers = criterionSaveStatusTimersRef.current;
     return () => {
-      Object.values(saveStatusTimersRef.current).forEach((timer) => window.clearTimeout(timer));
-      saveStatusTimersRef.current = {};
+      Object.values(timers).forEach((timer) => {
+        window.clearTimeout(timer);
+      });
     };
   }, []);
 
@@ -311,30 +316,48 @@ export default function WorkspacePage() {
     return body;
   };
 
-  const updateComment = async (resultFile: string, itemId: string, comment: string) => {
-    const res = await fetch(`/api/workspaces/${id}/results`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        resultFile,
-        items: [{ identifier: itemId, comment }],
-      }),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || "コメントの更新に失敗しました");
-    }
-    return (await res.json().catch(() => null)) as
-      | {
-          items?: Array<{
-            identifier: string;
-            rubricOutcomes: Record<number, boolean>;
-            score: number | null;
-            comment: string | null;
-          }>;
-        }
-      | null;
-  };
+  /**
+   * Persist a single comment to the results XML. This is the ONLY operation
+   * that counts as "saved" for autosave purposes. It intentionally does not
+   * reconcile from the server response: while a save is in flight the user may
+   * have typed further, and re-applying the server echo would clobber the newer
+   * on-screen value. The optimistic value is already applied via
+   * `applyLocalComment`, and a failed save must never roll back that value.
+   */
+  const persistCommentToServer = useCallback(
+    async (resultFile: string, itemId: string, comment: string) => {
+      const res = await fetch(`/api/workspaces/${id}/results`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resultFile,
+          items: [{ identifier: itemId, comment }],
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "コメントの更新に失敗しました");
+      }
+    },
+    [id]
+  );
+
+  const applyLocalComment = useCallback(
+    (resultFile: string, itemId: string, comment: string) => {
+      setResults((prev) => updateItemComment(prev, resultFile, itemId, comment));
+    },
+    []
+  );
+
+  const {
+    commentSaveStatusByKey,
+    hasUnsettledCommentSaves,
+    scheduleCommentSave,
+    flushCommentSave,
+  } = useCommentAutoSave({
+    persistComment: persistCommentToServer,
+    applyLocalComment,
+  });
 
   /**
    * Replace the optimistic local state for a single result file with the
@@ -384,7 +407,7 @@ export default function WorkspacePage() {
     setSaving(true);
     setError(null);
     const saveKey = makeCriterionKey(resultFile, itemId, criterionIndex);
-    startSaveFeedback(saveKey);
+    startCriterionSaveFeedback(saveKey);
     let nextRubricOutcomes: Record<number, boolean> = {};
     setResults((prev) =>
       prev.map((res) => {
@@ -414,34 +437,11 @@ export default function WorkspacePage() {
       if (response?.items && response.items.length > 0) {
         reconcileResultsFromServer(resultFile, response.items);
       }
-      finishSaveFeedback(saveKey, "saved");
+      finishCriterionSaveFeedback(saveKey, "saved");
     } catch (err) {
       setResults(prevResults);
       setError(err instanceof Error ? err.message : "採点結果の更新に失敗しました");
-      finishSaveFeedback(saveKey, "idle");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const updateResultComment = async (resultFile: string, itemId: string, comment: string) => {
-    const prevResults = results;
-    setSaving(true);
-    setError(null);
-    const saveKey = makeCommentKey(resultFile, itemId);
-    startSaveFeedback(saveKey);
-    setResults((prev) => updateItemComment(prev, resultFile, itemId, comment));
-
-    try {
-      const response = await updateComment(resultFile, itemId, comment);
-      if (response?.items && response.items.length > 0) {
-        reconcileResultsFromServer(resultFile, response.items);
-      }
-      finishSaveFeedback(saveKey, "saved");
-    } catch (err) {
-      setResults(prevResults);
-      setError(err instanceof Error ? err.message : "コメントの更新に失敗しました");
-      finishSaveFeedback(saveKey, "idle");
+      finishCriterionSaveFeedback(saveKey, "idle");
     } finally {
       setSaving(false);
     }
@@ -452,13 +452,12 @@ export default function WorkspacePage() {
     await updateRubricOutcome(currentResult.fileName, itemId, criterionIndex, value);
   };
 
-  const handleCommentBlur = async (itemId: string, comment: string) => {
-    if (!currentResult) return;
-    await updateResultComment(currentResult.fileName, itemId, comment);
+  const handleCommentBlur = (resultFile: string, itemId: string, comment: string) => {
+    flushCommentSave(resultFile, itemId, comment);
   };
 
   const handleCommentChange = (resultFile: string, itemId: string, comment: string) => {
-    setResults((prev) => updateItemComment(prev, resultFile, itemId, comment));
+    scheduleCommentSave(resultFile, itemId, comment);
   };
 
   const handleReportError = (message: string) => {
@@ -523,7 +522,7 @@ export default function WorkspacePage() {
             workspaceName={workspace.name}
             onError={handleReportError}
           />
-          {saving && <span className="sr-only">更新中...</span>}
+          {(saving || hasUnsettledCommentSaves) && <span className="sr-only">更新中...</span>}
         </div>
 
         <div className="sticky top-0 bg-white border rounded-lg shadow-sm p-4 mb-6 z-10">
@@ -673,7 +672,7 @@ export default function WorkspacePage() {
               const rubric = item.rubric;
               const comment = itemResult?.comment ?? "";
               const commentKey = makeCommentKey(currentResult.fileName, item.identifier);
-              const commentStatus = saveStatusByKey[commentKey];
+              const commentStatus = commentSaveStatusByKey[commentKey];
               return (
                 <div key={item.identifier} className="bg-white border rounded-lg p-6 shadow-sm">
                   <div className="flex items-center gap-3 mb-3">
@@ -707,7 +706,7 @@ export default function WorkspacePage() {
                             item.identifier,
                             criterion.index
                           );
-                          const criterionStatus = saveStatusByKey[criterionKey];
+                          const criterionStatus = criterionSaveStatusByKey[criterionKey];
                           return (
                             <RubricScoringControl
                               key={criterion.index}
@@ -724,22 +723,17 @@ export default function WorkspacePage() {
                       <div className="mt-3">
                         <div className="flex items-center justify-between mb-1">
                           <label className="block text-xs font-medium text-gray-600">コメント</label>
-                          {commentStatus && (
-                            <span
-                              className={`text-xs ${commentStatus === "saving" ? "text-gray-500" : "text-green-600"}`}
-                              data-testid={`save-status-${currentResult.fileName}-${item.identifier}-comment`}
-                              aria-live="polite"
-                            >
-                              {commentStatus === "saving" ? "保存中..." : "保存しました"}
-                            </span>
-                          )}
+                          <CommentSaveStatusIndicator
+                            status={commentStatus}
+                            testId={`save-status-${currentResult.fileName}-${item.identifier}-comment`}
+                          />
                         </div>
                         <AutoResizeTextarea
                           className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           rows={2}
                           value={comment}
                           onChange={(value) => handleCommentChange(currentResult.fileName, item.identifier, value)}
-                          onBlur={(value) => handleCommentBlur(item.identifier, value)}
+                          onBlur={(value) => handleCommentBlur(currentResult.fileName, item.identifier, value)}
                         />
                       </div>
                     </div>
@@ -786,10 +780,11 @@ export default function WorkspacePage() {
                   result={currentResult}
                   resultIndex={currentResultIndex}
                   resultCount={results.length}
-                  saveStatusByKey={saveStatusByKey}
+                  criterionSaveStatusByKey={criterionSaveStatusByKey}
+                  commentSaveStatusByKey={commentSaveStatusByKey}
                   onToggleCriterion={updateRubricOutcome}
                   onCommentChange={handleCommentChange}
-                  onCommentBlur={updateResultComment}
+                  onCommentBlur={handleCommentBlur}
                 />
               </EdgeScrollCandidateNavigator>
             </div>

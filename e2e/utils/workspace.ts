@@ -250,6 +250,7 @@ export type WaitForResultsUpdateOptions = {
   resultFile?: string;
   itemIdentifier?: string;
   comment?: string;
+  status?: number;
 };
 
 export const waitForResultsUpdate = (
@@ -264,6 +265,10 @@ export const waitForResultsUpdate = (
     if (options.workspaceId) {
       if (!url.includes(`/api/workspaces/${options.workspaceId}/results`)) return false;
     } else if (!url.includes('/api/workspaces/') || !url.includes('/results')) {
+      return false;
+    }
+
+    if (options.status !== undefined && response.status() !== options.status) {
       return false;
     }
 
