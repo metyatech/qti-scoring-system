@@ -384,3 +384,64 @@ test('comment autosave keeps the saved flash when blurred with the same value mi
     await expect(page.getByLabel('コメント')).toHaveValue('Blur same value');
   });
 });
+
+test('comment autosave warns before internal navigation while save is pending', async ({ page }) => {
+  await withWorkspace(page, 'E2E Comment Autosave Internal Navigation Guard', async (workspaceId) => {
+    let releaseSave: () => void = () => {};
+    let signalInflight: () => void = () => {};
+    const saveInflight = new Promise<void>((resolve) => {
+      signalInflight = resolve;
+    });
+    const saveRelease = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+
+    await page.route(`**/api/workspaces/${workspaceId}/results`, async (route) => {
+      const request = route.request();
+
+      if (request.method() === 'PUT') {
+        const body = request.postDataJSON() as {
+          resultFile?: string;
+          items?: Array<{ identifier?: string; comment?: string }>;
+        };
+
+        const isTarget =
+          body.resultFile === 'assessmentResult-1.xml' &&
+          body.items?.some(
+            (item) => item.identifier === 'item-1' && item.comment === 'Navigation guard comment'
+          );
+
+        if (isTarget) {
+          signalInflight();
+          await saveRelease;
+        }
+      }
+
+      await route.fallback();
+    });
+
+    const textarea = page.getByLabel('コメント');
+    await textarea.fill('Navigation guard comment');
+
+    await saveInflight;
+
+    page.once('dialog', async (dialog) => {
+      expect(dialog.type()).toBe('confirm');
+      expect(dialog.message()).toContain('コメントを保存中です');
+      await dialog.dismiss();
+    });
+
+    await page.getByRole('button', { name: 'ワークスペース一覧に戻る' }).click();
+
+    await expect(page).toHaveURL(new RegExp(`/workspace/${workspaceId}$`));
+
+    releaseSave();
+
+    await expect(
+      page.getByTestId('save-status-assessmentResult-1.xml-item-1-comment')
+    ).toContainText('保存しました');
+
+    await page.reload();
+    await expect(page.getByLabel('コメント')).toHaveValue('Navigation guard comment');
+  });
+});

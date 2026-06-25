@@ -473,6 +473,22 @@ export default function WorkspacePage() {
     window.location.href = `/api/workspaces/${workspace.id}/export`;
   };
 
+  /**
+   * Internal-navigation guard for the in-app "ワークスペース一覧に戻る" button.
+   * `beforeunload` only fires for tab close / external navigation, not for
+   * client-side `router.push`, so we mirror the guard for in-app transitions
+   * by asking the user to confirm while any comment save is still unsettled.
+   */
+  const handleBackToWorkspaceList = () => {
+    if (hasUnsettledCommentSaves) {
+      const ok = window.confirm(
+        "コメントを保存中です。保存が完了する前に移動すると、未保存の入力が失われる可能性があります。移動しますか？"
+      );
+      if (!ok) return;
+    }
+    router.push("/");
+  };
+
   if (loading) {
     return <div className="p-8 text-center text-gray-500">読み込み中...</div>;
   }
@@ -506,7 +522,7 @@ export default function WorkspacePage() {
 
         <div className="flex flex-wrap justify-center items-center gap-3 mb-6">
           <button
-            onClick={() => router.push("/")}
+            onClick={handleBackToWorkspaceList}
             className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
           >
             ワークスペース一覧に戻る
