@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Script from "next/script";
 import "highlight.js/styles/github-dark.css";
 import "./globals.css";
 
@@ -26,37 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <Script id="restore-expected-class" strategy="beforeInteractive">
-          {`(() => {
-  const deadline = Date.now() + 3000;
-  const restore = (el) => {
-    const expected = el.getAttribute('data-expected-class');
-    if (expected && el.className !== expected) el.className = expected;
-    if (el.hasAttribute('style')) el.removeAttribute('style');
-  };
-  const attach = () => {
-    const targets = Array.from(document.querySelectorAll('[data-expected-class]'));
-    if (targets.length === 0) {
-      if (Date.now() < deadline) requestAnimationFrame(attach);
-      return;
-    }
-    targets.forEach(restore);
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.type === 'attributes') restore(mutation.target);
-      }
-    });
-    targets.forEach((el) =>
-      observer.observe(el, { attributes: true, attributeFilter: ['class', 'style'] })
-    );
-    window.addEventListener('load', () => setTimeout(() => observer.disconnect(), 3000));
-  };
-  attach();
-})();`}
-        </Script>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
       </body>
     </html>
