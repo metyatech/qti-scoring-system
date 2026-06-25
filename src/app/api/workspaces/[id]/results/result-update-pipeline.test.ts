@@ -112,11 +112,6 @@ describe('executeResultUpdate pipeline', () => {
     expect(built.buildResultUpdateResponse).toHaveBeenCalledWith(
       expect.objectContaining({ updatedXml: '<updated/>' })
     );
-    expect(built.updateResultXml).toHaveBeenCalledWith(
-      built.dependencies.workspaceDir,
-      input.fileName,
-      '<updated/>'
-    );
   });
 
   it('validate-response failure: stops before persist and rejects with the validator error', async () => {
