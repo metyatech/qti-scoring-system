@@ -35,33 +35,13 @@ Source: github:metyatech/agent-rules@HEAD/rules/domains/node/npm-packages.md
 - Use npm pack --dry-run to inspect the package contents.
 - Run npm test when tests exist.
 
-Source: github:metyatech/agent-rules@HEAD/rules/domains/web/web-ui-and-testing.md
+Source: github:metyatech/agent-rules@HEAD/rules/domains/agent-tooling/composition.md
 
-# Web UI and automation
+# Agent Tooling Composition
 
-## Browser automation
-
-- For web automation, use the agent-browser Skill.
-- If browser launch fails due to missing Playwright binaries, run npx playwright
-  install chromium and retry.
-
-## UI verification and E2E
-
-- For user-visible UI changes, verify in a real browser using agent-browser; if
-  not possible, explain and provide manual steps.
-- Always add E2E tests for user-visible changes; if no harness exists, add one.
-- Run E2E in CI and require it for PR merges; do not defer correctness coverage
-  to scheduled runs.
-- For React UI changes, add tests that cover initial mount and at least one
-  update (re-render) path; include unmount/cleanup when relevant.
-- If behavior differs between first render and later renders (effects, caching,
-  hydration), cover both paths explicitly.
-- Configure E2E to fail fast and avoid auto-opening browsers (headless/no-open).
-- For Next.js E2E, prefer next build + next start.
-- If Playwright tests fail to launch, clear playwright/.cache and retry.
-- When adding/changing links, add tests that verify the target resolves; if not
-  feasible, document manual verification.
-- For cross-system integration flows, add an end-to-end test (or a contract test
-  at the boundary). If impractical, document the limitation and get explicit
-  user approval before skipping.
-- Use established icon libraries; do not handcraft custom icons or inline SVGs.
+- Agent tooling repositories MUST keep generated instruction files reproducible from `agent-ruleset.json` and the selected profile.
+- Agent tooling repositories MUST NOT rely on repo-local `agent-rules-local` rule files.
+- Rule source changes MUST be made in `rules/global/`, `rules/domains/`, or `agent-profiles.json`.
+- Generated `AGENTS.md` and `CLAUDE.md` diffs MUST be reviewed as generated instruction diffs, not hand-edited.
+- If a generated instruction file is stale, regenerate it with `compose-agentsmd` or the repository's canonical compose command before reporting completion.
+- A profile MUST select the complete set of domains needed by a repository type; consuming repositories MUST NOT compensate by listing domains or local extras.
