@@ -56,7 +56,7 @@ npm run dev
 - Root element `qti-assessment-item`.
 - Rubrics are defined in `qti-rubric-block view="scorer"` with `[<points>] <criterion>` per line.
 - Item `identifier` must match the assessment-test `identifier`.
-- Images referenced by `qti-img@src` should be included in the same folder structure (resolved as relative paths).
+- Images referenced by `img@src` should be included in the same folder structure (resolved as relative paths).
 
 ### QTI Results Reporting XML
 - Root element `assessmentResult`.

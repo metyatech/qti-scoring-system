@@ -13,10 +13,10 @@ const renderLongItem2 = (candidate: string) => `<?xml version="1.0" encoding="UT
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-2" title="E2E Item B" adaptive="false" time-dependent="false">
   <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string" />
   <qti-item-body>
-    <qti-p>Explain item B in detail for ${candidate}.</qti-p>
+    <p>Explain item B in detail for ${candidate}.</p>
     <qti-extended-text-interaction response-identifier="RESPONSE" />
     <qti-rubric-block view="scorer">
-      <qti-p>[1] Mentions key point</qti-p>
+      <p>[1] Mentions key point</p>
     </qti-rubric-block>
   </qti-item-body>
 </qti-assessment-item>
@@ -26,11 +26,11 @@ const renderLongItem1 = () => `<?xml version="1.0" encoding="UTF-8"?>
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-1" title="E2E Item A" adaptive="false" time-dependent="false">
   <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string" />
   <qti-item-body>
-    <qti-p>Explain item A.</qti-p>
+    <p>Explain item A.</p>
     <qti-extended-text-interaction response-identifier="RESPONSE" />
     <qti-rubric-block view="scorer">
-      <qti-p>[1] Provides any answer</qti-p>
-      <qti-p>[2] Explains reasoning</qti-p>
+      <p>[1] Provides any answer</p>
+      <p>[2] Explains reasoning</p>
     </qti-rubric-block>
   </qti-item-body>
 </qti-assessment-item>

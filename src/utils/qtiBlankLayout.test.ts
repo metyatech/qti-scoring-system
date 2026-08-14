@@ -19,7 +19,7 @@ describe('cloze blank layout styles', () => {
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-layout" title="Layout" adaptive="false" time-dependent="false">
   <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
   <qti-item-body>
-    <qti-p>A<qti-text-entry-interaction response-identifier="RESPONSE"/>B</qti-p>
+    <p>A<qti-text-entry-interaction response-identifier="RESPONSE"/>B</p>
   </qti-item-body>
 </qti-assessment-item>`;
     const item = parseQtiItemXml(xml);

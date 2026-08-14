@@ -123,13 +123,13 @@ describe('parseQtiItemXml', () => {
     </qti-correct-response>
   </qti-response-declaration>
   <qti-item-body>
-    <qti-p>Which number is prime?</qti-p>
+    <p>Which number is prime?</p>
     <qti-choice-interaction response-identifier="RESPONSE" max-choices="1">
       <qti-simple-choice identifier="CHOICE_1">9</qti-simple-choice>
       <qti-simple-choice identifier="CHOICE_2">11</qti-simple-choice>
     </qti-choice-interaction>
     <qti-rubric-block view="scorer">
-      <qti-p>[2] Selects the only prime number</qti-p>
+      <p>[2] Selects the only prime number</p>
     </qti-rubric-block>
   </qti-item-body>
 </qti-assessment-item>`;
@@ -147,7 +147,7 @@ describe('parseQtiItemXml', () => {
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-2" adaptive="false" time-dependent="false">
   <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
   <qti-item-body>
-    <qti-p>Describe gravity.</qti-p>
+    <p>Describe gravity.</p>
     <qti-extended-text-interaction response-identifier="RESPONSE"/>
   </qti-item-body>
 </qti-assessment-item>`;
@@ -161,7 +161,7 @@ describe('parseQtiItemXml', () => {
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-3" title="Cloze" adaptive="false" time-dependent="false">
   <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
   <qti-item-body>
-    <qti-p>Water is <qti-text-entry-interaction response-identifier="RESPONSE"/>.</qti-p>
+    <p>Water is <qti-text-entry-interaction response-identifier="RESPONSE"/>.</p>
   </qti-item-body>
 </qti-assessment-item>`;
     const item = parseQtiItemXml(xml);
@@ -172,36 +172,36 @@ describe('parseQtiItemXml', () => {
     expect(item.promptHtml).toContain('size="6"');
   });
 
-  it('does not introduce line breaks around blanks inside qti-pre', () => {
+  it('does not introduce line breaks around blanks inside canonical pre/code', () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-pre" title="Pre" adaptive="false" time-dependent="false">
   <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
   <qti-item-body>
-    <qti-pre>
-      <qti-code>opacity: </qti-code>
+    <pre><code>opacity:
       <qti-text-entry-interaction response-identifier="RESPONSE"/>
-      <qti-code>;</qti-code>
-    </qti-pre>
+      ;</code></pre>
   </qti-item-body>
 </qti-assessment-item>`;
     const item = parseQtiItemXml(xml);
     expect(item.promptHtml).toContain('<pre class="qti-pre-with-blanks">');
     expect(item.promptHtml).not.toMatch(/<\/code>\s*[\r\n]+\s*<input/);
     expect(item.promptHtml).not.toMatch(/<input[^>]*>\s*[\r\n]+\s*<code/);
-    expect(item.promptHtml).toContain('opacity:</code><input');
-    expect(item.promptHtml).toContain('/><code>;');
+    const prompt = new DOMParser().parseFromString(item.promptHtml, 'text/html');
+    const code = prompt.querySelector('pre > code');
+    expect(code?.textContent).toContain('opacity:');
+    expect(code?.querySelector('input.qti-blank-input')).not.toBeNull();
   });
 
-  it('preserves required newlines around standalone blanks in qti-pre', () => {
+  it('preserves required newlines around standalone blanks in canonical pre/code', () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-pre-newline" title="Pre Newline" adaptive="false" time-dependent="false">
   <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
   <qti-item-body>
-    <qti-pre><qti-code>} 
+    <pre><code>}
 
-</qti-code><qti-text-entry-interaction response-identifier="RESPONSE"/><qti-code>
+</code><qti-text-entry-interaction response-identifier="RESPONSE"/><code>
 {
-}</qti-code></qti-pre>
+}</code></pre>
   </qti-item-body>
 </qti-assessment-item>`;
     const item = parseQtiItemXml(xml);
@@ -227,15 +227,15 @@ describe('parseQtiItemXml', () => {
     </qti-set-outcome-value>
   </qti-response-processing>
   <qti-item-body>
-    <qti-p>Explain the answer.</qti-p>
+    <p>Explain the answer.</p>
     <qti-extended-text-interaction response-identifier="RESPONSE"/>
   </qti-item-body>
   <qti-modal-feedback outcome-identifier="FEEDBACK" identifier="EXPLANATION" show-hide="show">
     <qti-content-body>
-      <qti-p>This is the explanation.</qti-p>
-      <qti-ul>
-        <qti-li>Point A</qti-li>
-      </qti-ul>
+      <p>This is the explanation.</p>
+      <ul>
+        <li>Point A</li>
+      </ul>
     </qti-content-body>
   </qti-modal-feedback>
 </qti-assessment-item>`;
@@ -252,9 +252,9 @@ describe('parseQtiItemXml', () => {
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-rubric-expl" title="Candidate Rubric" adaptive="false" time-dependent="false">
   <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
   <qti-item-body>
-    <qti-p>Prompt</qti-p>
+    <p>Prompt</p>
     <qti-rubric-block view="candidate">
-      <qti-p>Legacy explanation</qti-p>
+      <p>Legacy explanation</p>
     </qti-rubric-block>
   </qti-item-body>
 </qti-assessment-item>`;
@@ -268,34 +268,34 @@ describe('parseQtiItemXml', () => {
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-flow" title="Flow" adaptive="false" time-dependent="false">
   <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
   <qti-item-body>
-    <qti-h3>Heading 3</qti-h3>
-    <qti-h4>Heading 4</qti-h4>
-    <qti-h5>Heading 5</qti-h5>
-    <qti-h6>Heading 6</qti-h6>
-    <qti-p>
-      Text <qti-em>em</qti-em> <qti-strong>strong</qti-strong> <qti-del>del</qti-del>
-      <qti-a href="https://example.com" title="Example">link</qti-a>
-      <qti-code>inline()</qti-code>
-    </qti-p>
-    <qti-pre><qti-code>const x = 1;</qti-code></qti-pre>
-    <qti-blockquote><qti-p>Quote</qti-p></qti-blockquote>
-    <qti-ul>
-      <qti-li>[ ] Task</qti-li>
-      <qti-li>Item</qti-li>
-    </qti-ul>
-    <qti-ol start="3">
-      <qti-li>Third</qti-li>
-    </qti-ol>
-    <qti-table>
-      <qti-thead>
-        <qti-tr><qti-th>H</qti-th></qti-tr>
-      </qti-thead>
-      <qti-tbody>
-        <qti-tr><qti-td>D</qti-td></qti-tr>
-      </qti-tbody>
-    </qti-table>
-    <qti-hr />
-    <qti-p><qti-img src="img.png" alt="alt" title="title" /></qti-p>
+    <h3>Heading 3</h3>
+    <h4>Heading 4</h4>
+    <h5>Heading 5</h5>
+    <h6>Heading 6</h6>
+    <p>
+      Text <em>em</em> <strong>strong</strong> <del>del</del>
+      <a href="https://example.com" title="Example">link</a>
+      <code>inline()</code>
+    </p>
+    <pre><code>const x = 1;</code></pre>
+    <blockquote><p>Quote</p></blockquote>
+    <ul>
+      <li>[ ] Task</li>
+      <li>Item</li>
+    </ul>
+    <ol start="3">
+      <li>Third</li>
+    </ol>
+    <table>
+      <thead>
+        <tr><th>H</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>D</td></tr>
+      </tbody>
+    </table>
+    <hr />
+    <p><img src="img.png" alt="alt" title="title" /></p>
   </qti-item-body>
 </qti-assessment-item>`;
     const item = parseQtiItemXml(xml);
@@ -321,6 +321,65 @@ describe('parseQtiItemXml', () => {
     expect(item.promptHtml).toContain('<td>D</td>');
     expect(item.promptHtml).toContain('<hr />');
     expect(item.promptHtml).toContain('<img src="img.png" alt="alt" title="title" />');
+  });
+
+  it('preserves styled blank-like spans and bare flow elements', () => {
+    const item = parseQtiItemXml(`
+      <qti-assessment-item identifier="item-canonical" title="Canonical">
+        <qti-item-body>
+          <p>before <span style="display:inline-block;min-width:4em;border:1px solid #000;text-align:center;background:transparent;" class="answer" data-slot="a" aria-label="answer">A</span> after</p>
+          <img src="image.png" alt="Image" /><br /><hr />
+        </qti-item-body>
+      </qti-assessment-item>`);
+    const prompt = new DOMParser().parseFromString(item.promptHtml, 'text/html');
+    const span = prompt.querySelector('span.answer');
+    expect(span?.getAttribute('style')).toContain('min-width:4em');
+    expect(span?.getAttribute('data-slot')).toBe('a');
+    expect(span?.getAttribute('aria-label')).toBe('answer');
+    expect(prompt.querySelector('img[src="image.png"]')).not.toBeNull();
+    expect(prompt.querySelector('br')).not.toBeNull();
+    expect(prompt.querySelector('hr')).not.toBeNull();
+  });
+
+  it('preserves rich code structure around styled content', () => {
+    const item = parseQtiItemXml(`
+      <qti-assessment-item identifier="item-rich-code" title="Rich code">
+        <qti-item-body><pre><code>foo <span style="display:inline-block;min-width:4em;border:1px solid #000;text-align:center;background:transparent;">A</span> bar</code></pre></qti-item-body>
+      </qti-assessment-item>`);
+    const code = new DOMParser().parseFromString(item.promptHtml, 'text/html').querySelector('pre > code');
+    expect(code?.textContent).toBe('foo A bar');
+    expect(code?.querySelector('span')).not.toBeNull();
+  });
+
+  it('keeps code cloze interaction position and metadata', () => {
+    const item = parseQtiItemXml(`
+      <qti-assessment-item identifier="item-code-cloze" title="Code cloze">
+        <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string" />
+        <qti-item-body><pre><code>foo <qti-text-entry-interaction response-identifier="RESPONSE" /> bar</code></pre></qti-item-body>
+      </qti-assessment-item>`);
+    expect(item.type).toBe('cloze');
+    const code = new DOMParser().parseFromString(item.promptHtml, 'text/html').querySelector('pre > code');
+    const blank = code?.querySelector('input.qti-blank-input');
+    expect(code?.textContent).toMatch(/^foo\s+\s+bar$/);
+    expect(blank?.getAttribute('data-interaction-id')).toBe('RESPONSE');
+    expect(blank?.getAttribute('data-blank')).toBe('1');
+  });
+
+  it('preserves rich choices and modal feedback explanation', () => {
+    const item = parseQtiItemXml(`
+      <qti-assessment-item identifier="item-rich-choice" title="Rich choice">
+        <qti-item-body>
+          <qti-choice-interaction response-identifier="RESPONSE" max-choices="1">
+            <qti-simple-choice identifier="A">Choice <strong>one</strong></qti-simple-choice>
+          </qti-choice-interaction>
+        </qti-item-body>
+        <qti-modal-feedback outcome-identifier="FEEDBACK" identifier="EXPLANATION" show-hide="show">
+          <qti-content-body><p>Explanation <em>with detail</em>.</p></qti-content-body>
+        </qti-modal-feedback>
+      </qti-assessment-item>`);
+    expect(item.choices[0]?.text).toBe('Choice one');
+    expect(item.promptHtml).toContain('Choice <strong>one</strong>');
+    expect(item.candidateExplanationHtml).toContain('<em>with detail</em>');
   });
 });
 

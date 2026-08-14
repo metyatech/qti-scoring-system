@@ -56,14 +56,12 @@ describe('highlightCodeBlocks', () => {
     expect(code?.classList.contains('hljs')).toBe(false);
   });
 
-  it('highlights qti-pre + qti-code HTML snippets as markup', () => {
+  it('highlights canonical pre + code HTML snippets as markup', () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-html" title="HTML" adaptive="false" time-dependent="false">
   <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string"/>
   <qti-item-body>
-    <qti-pre>
-      <qti-code>&lt;button id="btn"&gt;Click&lt;/button&gt;</qti-code>
-    </qti-pre>
+    <pre><code>&lt;button id="btn"&gt;Click&lt;/button&gt;</code></pre>
   </qti-item-body>
 </qti-assessment-item>`;
     const item = parseQtiItemXml(xml);

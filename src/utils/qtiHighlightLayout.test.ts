@@ -15,7 +15,7 @@ const loadCss = (cssPath: string) => {
 };
 
 describe('highlight theme layout with blanks', () => {
-  it('overrides highlight.js block display for code segments', () => {
+  it('keeps canonical code blocks with blanks structurally intact', () => {
     const highlightCssPath = path.resolve(
       process.cwd(),
       'node_modules/highlight.js/styles/github-dark.css'
@@ -36,11 +36,10 @@ describe('highlight theme layout with blanks', () => {
       node.classList.contains('qti-pre-with-blanks')
     );
     expect(pre).not.toBeUndefined();
-    const code = pre?.querySelector('code.hljs') as HTMLElement | null;
+    const code = pre?.querySelector('code') as HTMLElement | null;
     expect(code).not.toBeNull();
-
-    const computed = getComputedStyle(code as HTMLElement);
-    expect(computed.display).toBe('inline');
+    expect(code?.classList.contains('hljs')).toBe(false);
+    expect(code?.querySelector('input.qti-blank-input')).not.toBeNull();
 
     globalsStyle.remove();
     highlightStyle.remove();

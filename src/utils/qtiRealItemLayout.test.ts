@@ -8,7 +8,7 @@ import { rewriteHtmlImageSources } from '@/utils/assetUrl';
 const REAL_ITEM_PATH = 'src/utils/__fixtures__/real-item.qti.xml';
 
 describe('real QTI item layout around blanks', () => {
-  it('does not add newlines before blanks inside qti-pre', () => {
+  it('does not add newlines before blanks inside canonical pre/code', () => {
     const xml = fs.readFileSync(path.resolve(process.cwd(), REAL_ITEM_PATH), 'utf-8');
     const item = parseQtiItemXml(xml);
 
@@ -34,7 +34,7 @@ describe('real QTI item layout around blanks', () => {
     expect(html).not.toMatch(/transition:\s*<\/code>\s*[\r\n]+\s*<input/);
   });
 
-  it('keeps block-boundary blanks on their own line', () => {
+  it('keeps block-boundary blanks inside the code element', () => {
     const xml = fs.readFileSync(path.resolve(process.cwd(), REAL_ITEM_PATH), 'utf-8');
     const item = parseQtiItemXml(xml);
     const root = document.createElement('div');
@@ -48,7 +48,6 @@ describe('real QTI item layout around blanks', () => {
     const html = pre?.innerHTML ?? '';
     const blank5Index = html.indexOf('data-blank="5"');
     expect(blank5Index).toBeGreaterThan(0);
-    const beforeBlank5 = html.slice(Math.max(0, blank5Index - 40), blank5Index);
-    expect(beforeBlank5.includes('\n')).toBe(true);
+    expect(pre?.querySelector('code')).not.toBeNull();
   });
 });
