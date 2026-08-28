@@ -114,6 +114,7 @@ export async function PUT(
           resultPath: tmpResultsPath,
           assessmentTestPath,
           scoringPath: tmpPath,
+          preserveMet: body.preserveMet,
           fileName: safeResultName,
           requestedIdentifiers: body.items.map((item) => item.identifier),
         },
