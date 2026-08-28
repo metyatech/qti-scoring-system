@@ -156,6 +156,29 @@ describe('parseQtiItemXml', () => {
     expect(item.type).toBe('descriptive');
   });
 
+  it('classifies extended-text interaction as descriptive', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-extended" title="Extended" adaptive="false" time-dependent="false">
+  <qti-item-body>
+    <qti-extended-text-interaction response-identifier="RESPONSE" />
+  </qti-item-body>
+</qti-assessment-item>`;
+    expect(parseQtiItemXml(xml).type).toBe('descriptive');
+  });
+
+  it('does not classify descriptive HTML containing qti-blank-input as cloze', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-text" title="Text" adaptive="false" time-dependent="false">
+  <qti-item-body>
+    <p>The literal text qti-blank-input is part of the answer guidance.</p>
+    <qti-extended-text-interaction response-identifier="RESPONSE" />
+  </qti-item-body>
+</qti-assessment-item>`;
+    const item = parseQtiItemXml(xml);
+    expect(item.type).toBe('descriptive');
+    expect(item.promptHtml).toContain('qti-blank-input');
+  });
+
   it('detects cloze item type', () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-3" title="Cloze" adaptive="false" time-dependent="false">

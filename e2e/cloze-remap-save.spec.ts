@@ -106,11 +106,11 @@ test('cloze rubric upgrade PUTs under the remapped identifier and rewrites the s
       expect(Number.isFinite(responseBody.testScore)).toBe(true);
       expect((responseBody.testScore as number) >= 0).toBe(true);
 
-      // Post-PUT: criterion 1 was just upgraded, so it must show the locked
-      // message and have lost its upgrade button. Criterion 2 is still
-      // undetermined and must still offer an upgrade button.
+      // Post-PUT: criterion 1 was just upgraded, so it must show the normal
+      // cloze toggle because this legacy test has no auto-grading baseline.
+      // Criterion 2 is explicitly false and still offers an upgrade button.
       const firstCriterion = page.getByText('[1] Capital is correct').locator('..');
-      await expect(firstCriterion.getByText('正答から誤答には変更できません')).toBeVisible();
+      await expect(firstCriterion.getByRole('button', { name: '×' })).toHaveCount(1);
       await expect(firstCriterion.getByRole('button', { name: '正答に変更' })).toHaveCount(0);
 
       const secondCriterion = page.getByText('[2] Capital is correctly spelled').locator('..');
@@ -122,7 +122,7 @@ test('cloze rubric upgrade PUTs under the remapped identifier and rewrites the s
       await expect(page.getByRole('heading', { name: 'E2E Remap Item' })).toBeVisible();
 
       const reloadedFirst = page.getByText('[1] Capital is correct').locator('..');
-      await expect(reloadedFirst.getByText('正答から誤答には変更できません')).toBeVisible();
+      await expect(reloadedFirst.getByRole('button', { name: '×' })).toHaveCount(1);
       await expect(reloadedFirst.getByRole('button', { name: '正答に変更' })).toHaveCount(0);
 
       const reloadedSecond = page.getByText('[2] Capital is correctly spelled').locator('..');

@@ -9,6 +9,7 @@ import type { QtiItem, QtiResult } from "@/utils/qtiParsing";
 import { formatResponse } from "@/utils/formatResponse";
 import { getEffectiveRubricOutcomes, getItemMaxScore, getItemScore } from "@/utils/scoring";
 import { makeCommentKey, makeCriterionKey } from "@/utils/workspaceKeys";
+import type { AutoGradingProtectedCriteria } from "@/lib/autoGradingProtection";
 
 type ItemCandidateCardProps = {
   item: QtiItem;
@@ -29,6 +30,7 @@ type ItemCandidateCardProps = {
     itemId: string,
     comment: string
   ) => void | Promise<void>;
+  autoGradingProtectedCriteria: AutoGradingProtectedCriteria;
 };
 
 /**
@@ -50,6 +52,7 @@ function ItemCandidateCardImpl({
   onToggleCriterion,
   onCommentChange,
   onCommentBlur,
+  autoGradingProtectedCriteria,
 }: ItemCandidateCardProps) {
   const itemResult = result.itemResults[item.identifier];
   const responseText = formatResponse(item, itemResult);
@@ -118,6 +121,11 @@ function ItemCandidateCardImpl({
                       item={item}
                       criterion={criterion}
                       value={value}
+                      autoGradingProtected={
+                        autoGradingProtectedCriteria[result.fileName]?.[item.identifier]?.includes(
+                          criterion.index
+                        )
+                      }
                       saveStatus={criterionStatus}
                       saveStatusTestId={`save-status-${result.fileName}-${item.identifier}-criterion-${criterion.index}`}
                       onChange={(next) =>

@@ -7,6 +7,7 @@ export type RubricScoringControlProps = {
   item: QtiItem;
   criterion: QtiRubricCriterion;
   value: RubricValue;
+  autoGradingProtected?: boolean;
   onChange: (value: boolean) => void;
   /**
    * Save feedback for this single criterion. The parent owns the optimistic UI
@@ -29,10 +30,10 @@ export type RubricScoringControlProps = {
  *   toggle for the rubric; it only shows the saved auto-score plus a small
  *   "編集不可" hint. The user can still edit the comment textarea.
  * - `cloze` items expose `qti-text-entry-interaction` and may be partially
- *   correct. To avoid user confusion, the rubric is one-way: a scorer may
- *   flip `false`/`undefined → true` (正答に変更) but the reverse direction is
- *   hidden in the UI. Once `true`, a static message is rendered instead of any
- *   button. The three states are kept visually distinct: `true` shows ○,
+ *   correct. A true outcome is locked only when `autoGradingProtected` says
+ *   the AI前自動採点 snapshot had it as correct; otherwise a scorer can
+ *   change it to ×. `false`/`undefined` can still be changed to ○. The three
+ *   states are kept visually distinct: `true` shows ○,
  *   `false` shows ×, and `undefined` shows a neutral "未判定" — undefined is
  *   NOT a wrong answer (the criterion is simply undetermined for a SCORE-only
  *   file), so it must never be rendered as × / 誤答.
@@ -42,6 +43,7 @@ export default function RubricScoringControl({
   item,
   criterion,
   value,
+  autoGradingProtected = false,
   onChange,
   saveStatus,
   saveStatusTestId,
@@ -87,7 +89,7 @@ export default function RubricScoringControl({
   }
 
   if (item.type === "cloze") {
-    if (value === true) {
+    if (value === true && autoGradingProtected) {
       return (
         <div className="flex items-center gap-2" data-testid="rubric-cloze-locked">
           <span className="px-2 py-1 rounded text-xs border bg-green-600 text-white border-green-600">
@@ -99,8 +101,30 @@ export default function RubricScoringControl({
         </div>
       );
     }
+    if (value === true) {
+      return (
+        <div className="flex items-center gap-2" data-testid="rubric-cloze-correctable">
+          <button
+            type="button"
+            onClick={() => onChange(true)}
+            className="px-2 py-1 rounded text-xs border bg-green-600 text-white border-green-600"
+          >
+            〇
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange(false)}
+            className="px-2 py-1 rounded text-xs border bg-white text-gray-600 border-gray-300 hover:bg-red-50"
+          >
+            ×
+          </button>
+          {renderCriterionLabel()}
+          {renderSaveStatus()}
+        </div>
+      );
+    }
     // `false` (explicitly wrong) and `undefined` (undetermined, e.g. a
-    // SCORE-only file) both expose the one-way "正答に変更" upgrade, but they
+    // SCORE-only file) expose the existing "正答に変更" upgrade, but they
     // render with distinct, non-color-only labels so undefined is never read as
     // a wrong answer.
     const isUndetermined = value === undefined;

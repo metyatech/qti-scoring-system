@@ -33,16 +33,18 @@ test('cloze rubric upgrade reconciles with the server-confirmed value', async ({
       expect(body.items?.[0]?.rubricOutcomes[1]).toBe(true);
 
       // After reconciliation, the first criterion (the one we just upgraded)
-      // should now render the locked message instead of the upgrade button.
+      // is changeable because this legacy test has no auto-grading baseline.
       const firstCriterion = page.getByText('[1] Capital is correct').locator('..');
-      await expect(firstCriterion.getByText('正答から誤答には変更できません')).toBeVisible();
+      await expect(firstCriterion.getByRole('button', { name: '×' })).toHaveCount(1);
       await expect(firstCriterion.getByRole('button', { name: '正答に変更' })).toHaveCount(0);
 
-      // Reload and confirm the value is still true (i.e. the server side
-      // round-trips the change and the page reads it back on init).
+      // Reload and confirm the value is still true and remains changeable
+      // (i.e. the server side round-trips the change and the page reads it
+      // back on init).
       await page.reload();
       await expect(page.getByRole('heading', { name: 'E2E Cloze Item' })).toBeVisible();
-      await expect(page.getByText('正答から誤答には変更できません')).toBeVisible();
+      await expect(page.getByText('正答から誤答には変更できません')).toHaveCount(0);
+      await expect(page.getByRole('button', { name: '×' })).toHaveCount(1);
     },
     'assessmentResult-cloze-1.xml',
     'assessment-cloze'

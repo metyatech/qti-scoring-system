@@ -22,7 +22,7 @@ import { withWorkspace, waitForResultsUpdate } from './utils/workspace';
 //         production Results XML therefore proves the apply-stage
 //         guard holds end to end via real HTTP.
 // E2E 2 — PUT 500 rolls back the optimistic UI and leaves the file untouched
-// E2E 3 — partial-score SCORE never drops below the explicit value during PUT
+// E2E 3 — optimistic partial-score display reconciles to the normal rubric score
 //
 // Note on coverage split between this E2E file and the in-process
 // pipeline test:
@@ -182,7 +182,7 @@ test('PUT 500 with route.fulfill rolls back the optimistic UI and leaves the fil
   );
 });
 
-test('partial-score SCORE never drops below the explicit value during the PUT (optimistic hold)', async ({
+test('partial-score SCORE is held optimistically, then reconciles to the rubric score', async ({
   page,
 }) => {
   const resultFile = 'assessmentResult-cloze-partial-1.xml';
@@ -237,19 +237,19 @@ test('partial-score SCORE never drops below the explicit value during the PUT (o
       const response = await respPromise;
       expect(response.status()).toBe(200);
 
-      // Post-PUT: the score must remain 2 (apply-to-qti-results keeps
-      // existingScoreScaled when itemScoreScaled < existingScoreScaled,
-      // so the upgrade to met=true on the 1pt criterion cannot lower
-      // the saved SCORE below 2).
-      await expect(itemScore).toContainText('2');
+      // Post-PUT: the normal review mode now allows a non-protected cloze
+      // score to be recomputed from the requested rubric outcomes. The
+      // complete update is [true, false], so the saved score is 1.
+      await expect(itemScore).toContainText('1');
 
       // Reload and confirm the saved value round-trips.
       await page.reload();
       await expect(page.getByRole('heading', { name: 'E2E Cloze Partial Item' })).toBeVisible();
       const reloadedScore = page.locator('text=得点:').first();
-      await expect(reloadedScore).toContainText('2');
+      await expect(reloadedScore).toContainText('1');
 
-      // The saved itemResult SCORE is still ≥ 2.
+      // The saved itemResult SCORE follows the requested non-protected rubric
+      // outcomes rather than the old cloze-wide monotonic clamp.
       const resultPath = resultFilePath(workspaceId, resultFile);
       const savedXml = await fs.promises.readFile(resultPath, 'utf-8');
       const scoreMatch = savedXml.match(
@@ -258,7 +258,7 @@ test('partial-score SCORE never drops below the explicit value during the PUT (o
       expect(scoreMatch).not.toBeNull();
       const savedScore = Number(scoreMatch?.[1]);
       expect(Number.isFinite(savedScore)).toBe(true);
-      expect(savedScore).toBeGreaterThanOrEqual(2);
+      expect(savedScore).toBe(1);
     },
     resultFile,
     'assessment-cloze-partial'

@@ -13,6 +13,7 @@ import { applyQtiResultsUpdate } from '@/lib/qtiTools';
 import { parseAssessmentTestXml } from '@/utils/qtiParsing';
 import { buildResultUpdateResponse } from './response';
 import { executeResultUpdate } from './executeResultUpdate';
+import { getAutoGradingProtectedCriteria } from '@/lib/autoGradingProtection';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -72,7 +73,22 @@ export async function PUT(
       return NextResponse.json({ error: 'assessmentTest が見つかりません' }, { status: 400 });
     }
 
-    const scoringInput = { items: body.items };
+    const autoGradingProtectedCriteria = await getAutoGradingProtectedCriteria(id);
+    const protectedByItem = autoGradingProtectedCriteria[safeResultName] ?? {};
+    const scoringInput = {
+      items: body.items.map((item) => ({
+        ...item,
+        ...(item.criteria
+          ? {
+              criteria: item.criteria.map((criterion, index) =>
+                criterion.met === false && protectedByItem[item.identifier]?.includes(index + 1)
+                  ? { ...criterion, met: true }
+                  : criterion,
+              ),
+            }
+          : {}),
+      })),
+    };
     const tmpDir = path.join(workspaceDir, 'tmp');
     await fs.promises.mkdir(tmpDir, { recursive: true });
     const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -98,7 +114,6 @@ export async function PUT(
           resultPath: tmpResultsPath,
           assessmentTestPath,
           scoringPath: tmpPath,
-          preserveMet: body.preserveMet,
           fileName: safeResultName,
           requestedIdentifiers: body.items.map((item) => item.identifier),
         },

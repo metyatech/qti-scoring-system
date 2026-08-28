@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readWorkspace, deleteWorkspace, updateWorkspace } from '@/lib/workspace';
 import { UpdateWorkspaceRequest } from '@/types/qti';
+import { getAutoGradingProtectedCriteria } from '@/lib/autoGradingProtection';
 
 export const runtime = 'nodejs';
 
@@ -22,7 +23,8 @@ export async function GET(
 
         return NextResponse.json({
             success: true,
-            workspace
+            workspace,
+            autoGradingProtectedCriteria: await getAutoGradingProtectedCriteria(id),
         });
     } catch (error) {
         console.error('ワークスペース取得エラー:', error);

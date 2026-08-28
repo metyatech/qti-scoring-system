@@ -105,8 +105,8 @@ export interface RemapResult {
 
 export const parseQtiItemXml = (xml: string): QtiItem => {
   const parsed = renderQtiItemForScoring(xml);
-  const hasChoice = parsed.choices.length > 0;
-  const hasCloze = parsed.promptHtml.includes('qti-blank-input');
+  const hasChoice = parsed.interactions.some((interaction) => interaction.type === 'choice');
+  const hasCloze = parsed.interactions.some((interaction) => interaction.type === 'text-entry');
   const type: QtiItemType = hasChoice ? 'choice' : hasCloze ? 'cloze' : 'descriptive';
 
   return {

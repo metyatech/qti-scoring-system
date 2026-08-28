@@ -91,11 +91,17 @@ describe('RubricScoringControl', () => {
     expect(onChange).not.toHaveBeenCalledWith(false);
   });
 
-  it('locks the cloze control once the value is true', () => {
+  it('locks a cloze control when the true value is auto-grading protected', () => {
     const onChange = vi.fn();
     act(() => {
       root.render(
-        <RubricScoringControl item={makeItem('cloze')} criterion={baseCriterion} value={true} onChange={onChange} />
+        <RubricScoringControl
+          item={makeItem('cloze')}
+          criterion={baseCriterion}
+          value={true}
+          autoGradingProtected
+          onChange={onChange}
+        />
       );
     });
 
@@ -105,6 +111,27 @@ describe('RubricScoringControl', () => {
     expect(container.textContent).not.toContain('正答に変更');
   });
 
+  it('keeps a non-protected true cloze outcome changeable to ×', () => {
+    const onChange = vi.fn();
+    act(() => {
+      root.render(
+        <RubricScoringControl item={makeItem('cloze')} criterion={baseCriterion} value={true} onChange={onChange} />
+      );
+    });
+
+    expect(container.querySelector('[data-testid="rubric-cloze-correctable"]')).not.toBeNull();
+    const crossButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => (button.textContent ?? '').trim() === '×'
+    );
+    expect(crossButton).toBeDefined();
+
+    act(() => {
+      crossButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(onChange).toHaveBeenCalledWith(false);
+    expect(container.textContent).not.toContain('正答から誤答には変更できません');
+  });
+
   it('keeps the 〇 / × toggle for descriptive items', () => {
     const onChange = vi.fn();
     act(() => {
@@ -112,7 +139,7 @@ describe('RubricScoringControl', () => {
         <RubricScoringControl
           item={makeItem('descriptive')}
           criterion={baseCriterion}
-          value={undefined}
+          value={true}
           onChange={onChange}
         />
       );
@@ -127,12 +154,6 @@ describe('RubricScoringControl', () => {
     expect(circleButton).toBeDefined();
     expect(crossButton).toBeDefined();
 
-    act(() => {
-      circleButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    expect(onChange).toHaveBeenCalledWith(true);
-
-    onChange.mockClear();
     act(() => {
       crossButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });

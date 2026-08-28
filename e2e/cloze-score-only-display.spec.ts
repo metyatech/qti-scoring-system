@@ -61,6 +61,15 @@ test.describe('cloze SCORE-only display (fix #3)', () => {
       // every RUBRIC_n_MET absent so the server is forced to infer the
       // full-true state on the very first render.
       await setItemResultScore(resultPath, 3);
+      const autoGradingResultsDir = path.join(
+        process.cwd(),
+        'data',
+        'workspaces',
+        workspaceId,
+        'auto-grading-results'
+      );
+      await fs.promises.mkdir(autoGradingResultsDir, { recursive: true });
+      await fs.promises.copyFile(resultPath, path.join(autoGradingResultsDir, 'assessmentResult-cloze-1.xml'));
 
       await page.goto(`/workspace/${workspaceId}`);
       await expect(page.getByRole('heading', { name: 'E2E Cloze Item' })).toBeVisible();
@@ -124,31 +133,31 @@ test.describe('cloze SCORE-only display (fix #3)', () => {
         }>;
       };
       expect(body.items?.[0]?.identifier).toBe('item-1');
-      // The first criterion was upgraded to true; the second was NOT asked
-      // for, so it stays undefined (not inferred) on this file because the
-      // saved SCORE is no longer the rubric max after the partial upgrade
-      // round-trips with the explicit criterion 1: true.
+      // The first criterion was upgraded to true; the second was sent as
+      // false by the complete rubric update and is therefore explicitly
+      // wrong after the normal (non-preserving) save.
       expect(body.items?.[0]?.rubricOutcomes[1]).toBe(true);
-      expect(body.items?.[0]?.rubricOutcomes[2]).toBeUndefined();
+      expect(body.items?.[0]?.rubricOutcomes[2]).toBe(false);
 
       // Reload and verify the GUI reads the upgraded state back correctly:
-      // the first criterion is locked, the second is still undetermined.
+      // the first criterion can be toggled because it was not auto-graded
+      // true, while the second criterion is explicitly wrong.
       await page.reload();
       await expect(page.getByRole('heading', { name: 'E2E Cloze Item' })).toBeVisible();
 
       const firstCriterion = page.getByText('[1] Capital is correct').locator('..');
-      await expect(firstCriterion.getByText('正答から誤答には変更できません')).toBeVisible();
+      await expect(firstCriterion.getByRole('button', { name: '×' })).toHaveCount(1);
       await expect(firstCriterion.getByRole('button', { name: '正答に変更' })).toHaveCount(0);
 
       const secondCriterion = page.getByText('[2] Capital is correctly spelled').locator('..');
-      await expect(secondCriterion.getByText('現在: 未判定')).toBeVisible();
+      await expect(secondCriterion.getByText('現在: ×')).toBeVisible();
       await expect(secondCriterion.getByRole('button', { name: '正答に変更' })).toHaveCount(1);
     } finally {
       await deleteWorkspace(page, workspaceId);
     }
   });
 
-  test('C: partial-score SCORE-only with one explicit true shows ○ + 未判定', async ({ page }) => {
+  test('C: partial-score SCORE-only with one explicit true is changeable + 未判定', async ({ page }) => {
     const workspaceId = await createWorkspace(
       page,
       'E2E Cloze Score Only Display - SomeTrue',
@@ -167,10 +176,10 @@ test.describe('cloze SCORE-only display (fix #3)', () => {
       await page.goto(`/workspace/${workspaceId}`);
       await expect(page.getByRole('heading', { name: 'E2E Cloze Item' })).toBeVisible();
 
-      // Criterion 1 is explicitly true: locked message, no upgrade button,
-      // not 未判定, not ×.
+      // Criterion 1 is explicitly true but not protected by an auto-grading
+      // baseline, so it offers the normal 〇 / × toggle.
       const firstCriterion = page.getByText('[1] Capital is correct').locator('..');
-      await expect(firstCriterion.getByText('正答から誤答には変更できません')).toBeVisible();
+      await expect(firstCriterion.getByRole('button', { name: '×' })).toHaveCount(1);
       await expect(firstCriterion.getByRole('button', { name: '正答に変更' })).toHaveCount(0);
       await expect(firstCriterion.getByText('現在: 未判定')).toHaveCount(0);
       await expect(firstCriterion.getByText('現在: ×')).toHaveCount(0);

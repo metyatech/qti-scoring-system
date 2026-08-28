@@ -5,9 +5,10 @@ import { createWorkspace, deleteWorkspace } from './utils/workspace';
 
 // Regression test for the SCORE-only full-score cloze bug: a cloze item that
 // already holds the full rubric score but carries NO RUBRIC_n_MET outcomes must
-// be treated as fully correct. Sending met:false from the GUI/API must never
-// downgrade it to × — the score and every criterion stay true, and the page
-// shows the locked "正答から誤答には変更できません" state after reload.
+// be treated as fully correct when the same SCORE-only state is present in
+// the explicit auto-grading baseline. Sending met:false from the GUI/API must
+// never downgrade it to × — the score and every criterion stay true, and the
+// page shows the locked "正答から誤答には変更できません" state after reload.
 test('a full-score cloze item with no RUBRIC outcomes is never downgraded to ×', async ({
   page,
 }) => {
@@ -34,6 +35,13 @@ test('a full-score cloze item with no RUBRIC outcomes is never downgraded to ×'
     if (fullScore === original) {
       throw new Error('failed to inject full SCORE into the cloze result fixture');
     }
+    const autoGradingResultsDir = path.join(workspaceDir, 'auto-grading-results');
+    await fs.promises.mkdir(autoGradingResultsDir, { recursive: true });
+    await fs.promises.writeFile(
+      path.join(autoGradingResultsDir, 'assessmentResult-cloze-1.xml'),
+      fullScore,
+      'utf-8'
+    );
     await fs.promises.writeFile(resultPath, fullScore, 'utf-8');
 
     await page.goto(`/workspace/${workspaceId}`);

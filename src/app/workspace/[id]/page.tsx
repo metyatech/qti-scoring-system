@@ -33,6 +33,7 @@ import {
 import { useHighlightCodeBlocks } from "@/hooks/useHighlightCodeBlocks";
 import { useCommentAutoSave } from "@/hooks/useCommentAutoSave";
 import CommentSaveStatusIndicator from "@/components/CommentSaveStatusIndicator";
+import type { AutoGradingProtectedCriteria } from "@/lib/autoGradingProtection";
 
 const fetchFileText = async (workspaceId: string, kind: string, name: string) => {
   const res = await fetch(`/api/workspaces/${workspaceId}/files?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}`);
@@ -48,6 +49,8 @@ export default function WorkspacePage() {
   const [workspace, setWorkspace] = useState<QtiWorkspace | null>(null);
   const [items, setItems] = useState<QtiItem[]>([]);
   const [results, setResults] = useState<QtiResult[]>([]);
+  const [autoGradingProtectedCriteria, setAutoGradingProtectedCriteria] =
+    useState<AutoGradingProtectedCriteria>({});
   const pageRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +83,7 @@ export default function WorkspacePage() {
         }
         const ws: QtiWorkspace = wsJson.workspace;
         setWorkspace(ws);
+        setAutoGradingProtectedCriteria(wsJson.autoGradingProtectedCriteria ?? {});
         if (!ws.assessmentTestFile) {
           throw new Error('assessment-test が見つかりません');
         }
@@ -778,6 +782,11 @@ export default function WorkspacePage() {
                               item={item}
                               criterion={criterion}
                               value={value}
+                              autoGradingProtected={
+                                autoGradingProtectedCriteria[currentResult.fileName]?.[item.identifier]?.includes(
+                                  criterion.index
+                                )
+                              }
                               saveStatus={criterionStatus}
                               saveStatusTestId={`save-status-${currentResult.fileName}-${item.identifier}-criterion-${criterion.index}`}
                               onChange={(next) => handleToggleCriterion(item.identifier, criterion.index, next)}
@@ -847,6 +856,7 @@ export default function WorkspacePage() {
                   resultCount={results.length}
                   criterionSaveStatusByKey={criterionSaveStatusByKey}
                   commentSaveStatusByKey={commentSaveStatusByKey}
+                  autoGradingProtectedCriteria={autoGradingProtectedCriteria}
                   onToggleCriterion={updateRubricOutcome}
                   onCommentChange={handleCommentChange}
                   onCommentBlur={handleCommentBlur}
