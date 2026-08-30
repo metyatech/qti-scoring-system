@@ -13,6 +13,7 @@ import {
   getFileManagerCommand,
   openCandidateResource,
   readVerifiedArchiveForTest,
+  renameWithRetryForTest,
   resolveZipEntryDestinationForTest,
   validateCandidateResourceDefinitionForTest,
   validateZipEntryPathForTest
@@ -247,6 +248,93 @@ describe("candidate ZIP safety", () => {
     )).rejects.toMatchObject({ code: "unsafe" });
     expect(stat).toHaveBeenCalledOnce();
     expect(readFile).not.toHaveBeenCalled();
+  });
+});
+
+describe("candidate resource rename retry", () => {
+  const transientCodes = ["EPERM", "EBUSY", "EACCES"] as const;
+
+  it.each(transientCodes)("retries transient %s on Windows", async (code) => {
+    let attempts = 0;
+    const sleepCalls: number[] = [];
+    await renameWithRetryForTest(
+      "staging",
+      "target",
+      "win32",
+      async () => {
+        attempts += 1;
+        if (attempts < 3) {
+          const error = new Error("transient rename failure") as NodeJS.ErrnoException;
+          error.code = code;
+          throw error;
+        }
+      },
+      async (milliseconds) => {
+        sleepCalls.push(milliseconds);
+      }
+    );
+    expect(attempts).toBe(3);
+    expect(sleepCalls).toEqual([50, 100]);
+  });
+
+  it("throws permanent errors without sleeping", async () => {
+    let attempts = 0;
+    const sleep = vi.fn(async () => undefined);
+    await expect(renameWithRetryForTest(
+      "staging",
+      "target",
+      "win32",
+      async () => {
+        attempts += 1;
+        const error = new Error("missing rename source") as NodeJS.ErrnoException;
+        error.code = "ENOENT";
+        throw error;
+      },
+      sleep
+    )).rejects.toMatchObject({ code: "ENOENT" });
+    expect(attempts).toBe(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("does not retry transient errors outside Windows", async () => {
+    let attempts = 0;
+    const sleep = vi.fn(async () => undefined);
+    await expect(renameWithRetryForTest(
+      "staging",
+      "target",
+      "linux",
+      async () => {
+        attempts += 1;
+        const error = new Error("sharing violation") as NodeJS.ErrnoException;
+        error.code = "EPERM";
+        throw error;
+      },
+      sleep
+    )).rejects.toMatchObject({ code: "EPERM" });
+    expect(attempts).toBe(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("throws after exhausting all Windows retry attempts", async () => {
+    let attempts = 0;
+    const sleepCalls: number[] = [];
+    await expect(renameWithRetryForTest(
+      "staging",
+      "target",
+      "win32",
+      async () => {
+        attempts += 1;
+        const error = new Error("persistent sharing violation") as NodeJS.ErrnoException;
+        error.code = "EPERM";
+        throw error;
+      },
+      async (milliseconds) => {
+        sleepCalls.push(milliseconds);
+      }
+    )).rejects.toMatchObject({ code: "EPERM" });
+    expect(attempts).toBe(15);
+    expect(sleepCalls).toHaveLength(14);
+    expect(sleepCalls.at(-1)).toBe(1000);
   });
 });
 

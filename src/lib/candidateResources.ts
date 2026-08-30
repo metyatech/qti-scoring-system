@@ -293,6 +293,46 @@ const isZipSymlink = (entry: AdmZip.IZipEntry): boolean => {
   return (unixMode & 0o170000) === 0o120000;
 };
 
+const WINDOWS_RENAME_RETRY_ATTEMPTS = 15;
+const WINDOWS_RENAME_RETRY_INITIAL_DELAY_MS = 50;
+const WINDOWS_RENAME_RETRY_MAX_DELAY_MS = 1000;
+
+type RenameFunction = (source: string, destination: string) => Promise<void>;
+type SleepFunction = (milliseconds: number) => Promise<void>;
+
+const sleep = (milliseconds: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+const renameWithRetry = async (
+  source: string,
+  destination: string,
+  platform: NodeJS.Platform = process.platform,
+  renameFunction: RenameFunction = rename,
+  sleepFunction: SleepFunction = sleep
+): Promise<void> => {
+  for (let attempt = 1; attempt <= WINDOWS_RENAME_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      await renameFunction(source, destination);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (
+        platform !== "win32" ||
+        (code !== "EPERM" && code !== "EBUSY" && code !== "EACCES") ||
+        attempt === WINDOWS_RENAME_RETRY_ATTEMPTS
+      ) {
+        throw error;
+      }
+      await sleepFunction(
+        Math.min(
+          WINDOWS_RENAME_RETRY_INITIAL_DELAY_MS * 2 ** (attempt - 1),
+          WINDOWS_RENAME_RETRY_MAX_DELAY_MS
+        )
+      );
+    }
+  }
+};
+
 const readPlannedZipEntries = (archive: Buffer, stagingDir: string): PlannedZipEntry[] => {
   if (archive.byteLength > MAX_RAW_ZIP_BYTES) {
     throw new CandidateResourceError("unsafe", "raw ZIP がサイズ上限を超えています");
@@ -377,14 +417,14 @@ const atomicWriteMarker = async (markerPath: string, sourceSha256: string): Prom
       "utf8"
     );
     if (fs.existsSync(markerPath)) {
-      await rename(markerPath, backupPath);
+      await renameWithRetry(markerPath, backupPath);
       backedUp = true;
     }
     try {
-      await rename(tempPath, markerPath);
+      await renameWithRetry(tempPath, markerPath);
     } catch (error) {
       if (backedUp) {
-        await rename(backupPath, markerPath).catch(() => undefined);
+        await renameWithRetry(backupPath, markerPath).catch(() => undefined);
       }
       throw error;
     }
@@ -412,13 +452,13 @@ const replaceExtractedDirectory = async (
       if (targetStat.isSymbolicLink() || !targetStat.isDirectory()) {
         throw new CandidateResourceError("unsafe", "展開先が directory ではありません");
       }
-      await rename(targetPath, backupPath);
+      await renameWithRetry(targetPath, backupPath);
       backupTaken = true;
     }
     try {
-      await rename(stagingPath, targetPath);
+      await renameWithRetry(stagingPath, targetPath);
     } catch (error) {
-      if (backupTaken) await rename(backupPath, targetPath).catch(() => undefined);
+      if (backupTaken) await renameWithRetry(backupPath, targetPath).catch(() => undefined);
       throw error;
     }
     if (backupTaken) {
@@ -550,6 +590,7 @@ const launchFileManager = async (folderPath: string): Promise<void> => {
 export const validateCandidateResourceDefinitionForTest = assertResourceDefinition;
 export const validateZipEntryPathForTest = validateZipEntryPath;
 export const resolveZipEntryDestinationForTest = resolveZipEntryDestination;
+export const renameWithRetryForTest = renameWithRetry;
 export const extractZipSafelyForTest = extractZipSafely;
 export const replaceExtractedDirectoryForTest = replaceExtractedDirectory;
 export const readVerifiedArchiveForTest = readVerifiedArchive;
