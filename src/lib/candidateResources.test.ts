@@ -12,6 +12,8 @@ import {
   getCandidateResourceSummaries,
   getFileManagerCommand,
   openCandidateResource,
+  readVerifiedArchiveForTest,
+  resolveZipEntryDestinationForTest,
   validateCandidateResourceDefinitionForTest,
   validateZipEntryPathForTest
 } from "@/lib/candidateResources";
@@ -169,24 +171,82 @@ describe("candidate resource resolver", () => {
 });
 
 describe("candidate ZIP safety", () => {
-  it("rejects traversal, absolute, duplicate, symlink, and size-invalid entries", async () => {
+  const setCentralUncompressedSize = (archive: Buffer, size: number, occurrence = 0): Buffer => {
+    const patched = Buffer.from(archive);
+    const signature = Buffer.from([0x50, 0x4b, 0x01, 0x02]);
+    let offset = -signature.length;
+    for (let index = 0; index <= occurrence; index += 1) {
+      offset = patched.indexOf(signature, offset + signature.length);
+      if (offset < 0) throw new Error("central directory entry not found");
+    }
+    patched.writeUInt32LE(size, offset + 24);
+    return patched;
+  };
+
+  it("rejects traversal, absolute, drive, duplicate, symlink, collision, and size-invalid entries", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "qti-zip-safety-"));
     try {
       expect(() => validateZipEntryPathForTest("../escape.txt")).toThrow(CandidateResourceError);
       expect(() => validateZipEntryPathForTest("/escape.txt")).toThrow(CandidateResourceError);
+      expect(() => validateZipEntryPathForTest("C:/escape.txt")).toThrow(CandidateResourceError);
+      expect(() => validateZipEntryPathForTest("foo/C:/escape.txt")).toThrow(CandidateResourceError);
+      expect(() => validateZipEntryPathForTest("foo/D:escape.txt")).toThrow(CandidateResourceError);
       const duplicate = new JSZip();
       duplicate.file("A.txt", "a");
       duplicate.file("a.txt", "b");
       await expect(extractZipSafelyForTest(await duplicate.generateAsync({ type: "nodebuffer" }), root)).rejects.toMatchObject({ code: "unsafe" });
+      const collision = new JSZip();
+      collision.file("folder", "file");
+      collision.file("folder/child.txt", "child");
+      await expect(extractZipSafelyForTest(await collision.generateAsync({ type: "nodebuffer" }), root)).rejects.toMatchObject({ code: "unsafe" });
       const symlink = new JSZip();
       symlink.file("link", "target");
       const symlinkArchive = await symlink.generateAsync({ type: "nodebuffer" });
       const centralHeaderOffset = symlinkArchive.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
       symlinkArchive.writeUInt32LE(0xa1ff0000, centralHeaderOffset + 38);
       await expect(extractZipSafelyForTest(symlinkArchive, root)).rejects.toMatchObject({ code: "unsafe" });
+      const oversizedEntry = new JSZip();
+      oversizedEntry.file("small.txt", "small");
+      await expect(extractZipSafelyForTest(
+        setCentralUncompressedSize(await oversizedEntry.generateAsync({ type: "nodebuffer" }), 256 * 1024 * 1024 + 1),
+        root
+      )).rejects.toMatchObject({ code: "unsafe" });
+      const oversizedTotal = new JSZip();
+      for (let index = 0; index < 5; index += 1) oversizedTotal.file(`file-${index}.txt`, "small");
+      let oversizedTotalArchive = await oversizedTotal.generateAsync({ type: "nodebuffer" });
+      for (let index = 0; index < 5; index += 1) {
+        oversizedTotalArchive = setCentralUncompressedSize(oversizedTotalArchive, 256 * 1024 * 1024, index);
+      }
+      await expect(extractZipSafelyForTest(oversizedTotalArchive, root)).rejects.toMatchObject({ code: "unsafe" });
+      const tooManyEntries = new JSZip();
+      for (let index = 0; index < 10_001; index += 1) tooManyEntries.file(`file-${index}.txt`, "x");
+      await expect(extractZipSafelyForTest(await tooManyEntries.generateAsync({ type: "nodebuffer" }), root)).rejects.toMatchObject({ code: "unsafe" });
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  it("checks the final ZIP destination containment", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "qti-zip-destination-"));
+    try {
+      expect(resolveZipEntryDestinationForTest(root, "nested/file.txt")).toBe(path.join(root, "nested", "file.txt"));
+      expect(() => resolveZipEntryDestinationForTest(root, "../escape.txt")).toThrow(CandidateResourceError);
+      expect(() => resolveZipEntryDestinationForTest(root, "")).toThrow(CandidateResourceError);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects an oversized raw ZIP before reading it", async () => {
+    const readFile = vi.fn(async () => Buffer.from("must not be read"));
+    const stat = vi.fn(async () => ({ isFile: () => true, size: 256 * 1024 * 1024 + 1 }));
+    await expect(readVerifiedArchiveForTest(
+      "ignored.zip",
+      "0".repeat(64),
+      { stat, readFile }
+    )).rejects.toMatchObject({ code: "unsafe" });
+    expect(stat).toHaveBeenCalledOnce();
+    expect(readFile).not.toHaveBeenCalled();
   });
 });
 

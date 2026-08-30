@@ -64,4 +64,16 @@ describe("candidate resource routes", () => {
     );
     expect(arbitrary.status).toBe(400);
   });
+
+  it("rejects malformed JSON bodies with 400", async () => {
+    await setup();
+    const response = await POST(
+      new NextRequest("http://localhost/api/workspaces/exam-1/candidate-resources", {
+        method: "POST",
+        body: "{"
+      }),
+      { params: Promise.resolve({ id: "exam-1" }) }
+    );
+    expect(response.status).toBe(400);
+  });
 });

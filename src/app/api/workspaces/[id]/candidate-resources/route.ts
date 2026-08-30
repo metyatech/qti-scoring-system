@@ -61,7 +61,12 @@ export async function POST(
     if (getWorkspaceMode() === "legacy") {
       return NextResponse.json({ error: "candidate resource は利用できません" }, { status: 404 });
     }
-    const body = (await request.json()) as unknown;
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "リクエスト body の JSON が不正です" }, { status: 400 });
+    }
     if (
       typeof body !== "object" ||
       body === null ||

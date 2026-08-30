@@ -270,12 +270,22 @@ const validateZipEntryPath = (rawName: string): string => {
     throw new CandidateResourceError("unsafe", `ZIP entry path が絶対パスです: ${rawName}`);
   }
   const segments = portable.split("/");
-  if (segments.some((segment) => segment === "." || segment === "..")) {
+  if (segments.some((segment) => segment === "." || segment === ".." || /^[A-Za-z]:/u.test(segment))) {
     throw new CandidateResourceError("unsafe", `ZIP entry path に traversal があります: ${rawName}`);
   }
   const relative = segments.filter((segment) => segment !== "").join("/");
   if (relative === "") throw new CandidateResourceError("unsafe", "空の ZIP entry path です");
   return relative;
+};
+
+const resolveZipEntryDestination = (stagingDir: string, relativePath: string): string => {
+  const stagingRoot = path.resolve(stagingDir);
+  const destination = path.resolve(stagingRoot, ...relativePath.split("/"));
+  const relative = path.relative(stagingRoot, destination);
+  if (relative === "" || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new CandidateResourceError("unsafe", "ZIP entry の destination が staging directory の外です");
+  }
+  return destination;
 };
 
 const isZipSymlink = (entry: AdmZip.IZipEntry): boolean => {
@@ -324,7 +334,7 @@ const readPlannedZipEntries = (archive: Buffer, stagingDir: string): PlannedZipE
     planned.push({
       entry,
       relativePath,
-      destination: path.resolve(stagingDir, ...relativePath.split("/")),
+      destination: resolveZipEntryDestination(stagingDir, relativePath),
       size
     });
   }
@@ -422,21 +432,46 @@ const replaceExtractedDirectory = async (
   }
 };
 
-const prepareResource = async (resource: ResolvedResource): Promise<void> => {
-  const prepare = resource.definition.prepare;
-  if (prepare === undefined || resource.sourcePath === undefined) return;
-  let sourceStat;
+type RawZipSourceStat = {
+  isFile: () => boolean;
+  size: number;
+};
+
+type RawZipIo = {
+  stat: (sourcePath: string) => Promise<RawZipSourceStat>;
+  readFile: (sourcePath: string) => Promise<Buffer>;
+};
+
+const readVerifiedArchive = async (
+  sourcePath: string,
+  sourceSha256: string,
+  io: RawZipIo = { stat, readFile }
+): Promise<Buffer> => {
+  let sourceStat: RawZipSourceStat;
   try {
-    sourceStat = await stat(resource.sourcePath);
+    sourceStat = await io.stat(sourcePath);
   } catch {
     throw new CandidateResourceError("not-found", "提出 ZIP が見つかりません");
   }
   if (!sourceStat.isFile()) throw new CandidateResourceError("unsafe", "提出 ZIP が file ではありません");
-  const archive = await readFile(resource.sourcePath);
+  if (sourceStat.size > MAX_RAW_ZIP_BYTES) {
+    throw new CandidateResourceError("unsafe", "raw ZIP がサイズ上限を超えています");
+  }
+  const archive = await io.readFile(sourcePath);
+  if (archive.byteLength > MAX_RAW_ZIP_BYTES) {
+    throw new CandidateResourceError("unsafe", "raw ZIP がサイズ上限を超えています");
+  }
   const actualSha256 = createHash("sha256").update(archive).digest("hex");
-  if (actualSha256 !== prepare.sourceSha256) {
+  if (actualSha256 !== sourceSha256) {
     throw new CandidateResourceError("conflict", "提出 ZIP の SHA-256 が変わっています");
   }
+  return archive;
+};
+
+const prepareResource = async (resource: ResolvedResource): Promise<void> => {
+  const prepare = resource.definition.prepare;
+  if (prepare === undefined || resource.sourcePath === undefined) return;
+  const archive = await readVerifiedArchive(resource.sourcePath, prepare.sourceSha256);
   await replaceExtractedDirectory(resource.targetPath, archive);
   await atomicWriteMarker(resource.markerPath, prepare.sourceSha256);
 };
@@ -514,5 +549,7 @@ const launchFileManager = async (folderPath: string): Promise<void> => {
 // limits and replacement behavior to be exercised without opening a desktop.
 export const validateCandidateResourceDefinitionForTest = assertResourceDefinition;
 export const validateZipEntryPathForTest = validateZipEntryPath;
+export const resolveZipEntryDestinationForTest = resolveZipEntryDestination;
 export const extractZipSafelyForTest = extractZipSafely;
 export const replaceExtractedDirectoryForTest = replaceExtractedDirectory;
+export const readVerifiedArchiveForTest = readVerifiedArchive;
