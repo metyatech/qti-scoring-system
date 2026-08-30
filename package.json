@@ -24,9 +24,11 @@
   "dependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/adm-zip": "^0.5.7",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "apply-to-qti-results": "git+https://github.com/metyatech/apply-to-qti-results.git#9e3c5a4945d8a385de84839ee4980f16627d33fb",
+    "adm-zip": "0.5.17",
     "fast-xml-parser": "^5.3.7",
     "highlight.js": "^11.11.1",
     "jszip": "^3.10.1",

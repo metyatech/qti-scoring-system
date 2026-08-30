@@ -33,6 +33,7 @@ import {
 import { useHighlightCodeBlocks } from "@/hooks/useHighlightCodeBlocks";
 import { useCommentAutoSave } from "@/hooks/useCommentAutoSave";
 import CommentSaveStatusIndicator from "@/components/CommentSaveStatusIndicator";
+import CandidateResourceButtons from "@/components/CandidateResourceButtons";
 import type { AutoGradingProtectedCriteria } from "@/lib/autoGradingProtection";
 
 const fetchFileText = async (workspaceId: string, kind: string, name: string) => {
@@ -647,6 +648,10 @@ export default function WorkspacePage() {
               </button>
             </div>
             <div className="flex gap-2">
+              <CandidateResourceButtons
+                workspaceId={workspace.id}
+                resultFile={currentResult.fileName}
+              />
               <div className="flex rounded-md border border-gray-200 overflow-hidden">
                 <button
                   onClick={() => setViewMode("item")}

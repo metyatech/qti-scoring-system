@@ -57,12 +57,30 @@ export interface WorkspaceIndexConfig {
   indexPath: string;
 }
 
-interface WorkspaceIndexEntry {
+export type CandidateResourceDefinition = {
+  id: string;
+  label: string;
+  type: "folder";
+  path: string;
+  prepare?: {
+    type: "extract-zip";
+    sourcePath: string;
+    sourceSha256: string;
+  };
+};
+
+export type CandidateResourcesByResultFile = Record<
+  string,
+  CandidateResourceDefinition[]
+>;
+
+export interface WorkspaceIndexEntry {
   id: string;
   assessmentDir?: string;
   workspaceDir: string;
   name?: string;
   updatedAt?: string;
+  candidateResources?: CandidateResourcesByResultFile;
 }
 
 interface WorkspaceIndexFile {
@@ -158,6 +176,20 @@ const readIndexEntries = async (indexPath: string): Promise<WorkspaceIndexEntry[
 };
 
 /**
+ * Read one local-only index entry fresh from disk. The index is deliberately
+ * not cached: course-exams can update candidate resources while the scoring
+ * server remains running.
+ */
+export const getWorkspaceIndexEntry = async (
+  id: string
+): Promise<WorkspaceIndexEntry | null> => {
+  const config = getWorkspaceIndexConfig();
+  if (config === null) return null;
+  const entries = await readIndexEntries(config.indexPath);
+  return entries.find((candidate) => candidate.id === id) ?? null;
+};
+
+/**
  * Resolve the absolute directory for a workspace id.
  *
  * In index mode the index is read on every call so course-exams updates are
@@ -169,8 +201,7 @@ export const resolveWorkspaceDir = async (id: string): Promise<string | null> =>
   if (config === null) {
     return path.join(getLegacyDataDir(), id);
   }
-  const entries = await readIndexEntries(config.indexPath);
-  const entry = entries.find((candidate) => candidate.id === id);
+  const entry = await getWorkspaceIndexEntry(id);
   if (!entry || !entry.workspaceDir) {
     return null;
   }
