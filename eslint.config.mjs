@@ -8,6 +8,8 @@ const eslintConfig = [
     ignores: [
       "node_modules/**",
       ".next/**",
+      "playwright-report/**",
+      "test-results/**",
       "out/**",
       "build/**",
       "agent-rules/**",

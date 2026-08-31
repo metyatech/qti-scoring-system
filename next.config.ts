@@ -23,7 +23,9 @@ const nextConfig: NextConfig = {
   // suppresses the "this build is using Turbopack with a webpack config"
   // error and lets the explicit `webpack` config below take over when the
   // dev server is started with `--webpack`.
-  turbopack: {},
+  turbopack: {
+    root: projectRoot
+  },
   // The repo's TypeScript source uses path aliases such as `@/lib/...`. Next
   // 16's automatic alias resolution works for the SWC pipeline used by the
   // App Router runtime, but the underlying webpack bundler still needs an

@@ -73,12 +73,15 @@ export default function WorkspacePage() {
 
   useEffect(() => {
     if (!id) return;
+    let cancelled = false;
+
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
         const wsRes = await fetch(`/api/workspaces/${id}`);
         const wsJson = await wsRes.json();
+        if (cancelled) return;
         if (!wsRes.ok || !wsJson.success) {
           throw new Error(wsJson.error || "ワークスペースの読み込みに失敗しました");
         }
@@ -90,6 +93,7 @@ export default function WorkspacePage() {
         }
 
         const assessmentTestXml = await fetchFileText(ws.id, "assessment", ws.assessmentTestFile);
+        if (cancelled) return;
         const itemRefs = parseAssessmentTestXml(assessmentTestXml);
         if (ws.itemFiles.length !== itemRefs.length) {
           throw new Error("assessmentTest と設問ファイル数が一致しません");
@@ -98,6 +102,7 @@ export default function WorkspacePage() {
         const itemTexts = await Promise.all(
           ws.itemFiles.map((name) => fetchFileText(ws.id, "assessment", name))
         );
+        if (cancelled) return;
         const parsedItems = itemTexts.map((xml, index) => {
           const item = parseQtiItemXml(xml);
           const expectedIdentifier = itemRefs[index]?.identifier;
@@ -123,6 +128,7 @@ export default function WorkspacePage() {
         const resultTexts = await Promise.all(
           ws.resultFiles.map((name) => fetchFileText(ws.id, "results", name))
         );
+        if (cancelled) return;
         const parsedResults = resultTexts.map((xml, index) => parseQtiResultsXml(xml, ws.resultFiles[index]));
 
         const mappedResults = parsedResults.map((result) => {
@@ -157,12 +163,19 @@ export default function WorkspacePage() {
         setCurrentItemIndex(restoredState.currentItemIndex);
         setShowBasicInfo(restoredState.showBasicInfo);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "ワークスペースの読み込みに失敗しました");
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "ワークスペースの読み込みに失敗しました");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
     load();
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   useHighlightCodeBlocks(pageRef, highlightDeps, !loading);

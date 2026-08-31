@@ -76,6 +76,7 @@ test('clearing a comment removes it without errors', async ({ page }) => {
     // the candidate view, so a plain getByLabel is unambiguous.
     const textarea = page.getByLabel('コメント');
     await expect(textarea).toBeVisible();
+    await page.waitForLoadState('networkidle');
     await expect(textarea).toHaveValue('Initial comment');
 
     // Notion-style autosave: clearing the field saves automatically after the
@@ -200,6 +201,7 @@ test('comment autosaves without blur and persists after reload', async ({ page }
   await withWorkspace(page, 'E2E Comment Autosave', async (workspaceId) => {
     const textarea = page.getByLabel('コメント');
     await expect(textarea).toBeVisible();
+    await expect(textarea).toHaveValue('Initial comment');
 
     const saveResponse = waitForResultsUpdate(page, {
       workspaceId,

@@ -2,13 +2,14 @@ import { test, expect } from '@playwright/test';
 
 const THEMES: Array<'light' | 'dark'> = ['light', 'dark'];
 
-test('contrast and boundary visibility checks pass on top page', async ({ browser }) => {
+test('contrast and boundary visibility checks pass on top page', async ({ browser }, testInfo) => {
   test.setTimeout(180000);
   const issues: string[] = [];
+  const baseURL = testInfo.project.use.baseURL;
 
   for (const theme of THEMES) {
     const context = await browser.newContext({
-      baseURL: 'http://127.0.0.1:3000',
+      baseURL,
       colorScheme: theme
     });
 

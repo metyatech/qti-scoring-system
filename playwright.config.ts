@@ -1,5 +1,14 @@
 import { defineConfig } from '@playwright/test';
 
+const webServerEnv: Record<string, string> = Object.fromEntries(
+  Object.entries(process.env).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string'
+  )
+);
+
+webServerEnv.QTI_SCORING_SYSTEM_REPO_ROOT = '';
+webServerEnv.QTI_SCORING_SYSTEM_WORKSPACE_INDEX = '';
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
@@ -12,13 +21,14 @@ export default defineConfig({
   // (and can still override with --workers if needed).
   workers: process.env.CI ? undefined : 2,
   use: {
-    baseURL: 'http://127.0.0.1:3000',
+    baseURL: 'http://127.0.0.1:3100',
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'npm run dev -- --hostname 127.0.0.1 --port 3000',
-    url: 'http://127.0.0.1:3000',
-    reuseExistingServer: !process.env.CI,
+    command: 'npm run dev -- --hostname 127.0.0.1 --port 3100',
+    url: 'http://127.0.0.1:3100',
+    env: webServerEnv,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });
