@@ -1,4 +1,4 @@
-import type { QtiItem, QtiResult } from "@/utils/qtiParsing";
+import { resolveItemResponse, type QtiItem, type QtiResult } from "@/utils/qtiParsing";
 
 /**
  * Render a Results Reporting response for display inside a single candidate
@@ -15,15 +15,16 @@ export const formatResponse = (
   item: QtiItem,
   itemResult?: QtiResult["itemResults"][string]
 ): string => {
-  if (!itemResult || itemResult.response === null || itemResult.response === undefined) {
+  const response = resolveItemResponse(item, itemResult);
+  if (response === null || response === undefined) {
     return "（回答なし）";
   }
-  if (Array.isArray(itemResult.response)) {
-    return itemResult.response.join(" / ");
+  if (Array.isArray(response)) {
+    return response.join(" / ");
   }
   if (item.type === "choice") {
-    const choice = item.choices.find((c) => c.identifier === itemResult.response);
-    return choice ? `${choice.text} (${itemResult.response})` : String(itemResult.response);
+    const choice = item.choices.find((c) => c.identifier === response);
+    return choice ? `${choice.text} (${response})` : String(response);
   }
-  return String(itemResult.response);
+  return String(response);
 };

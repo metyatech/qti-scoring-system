@@ -5,6 +5,7 @@ import {
   parseQtiResultsXml,
   remapResultToAssessmentItems,
   resolveAssessmentHref,
+  resolveItemResponse,
 } from '@/utils/qtiParsing';
 
 describe('assessmentTest mapping helpers', () => {
@@ -406,6 +407,26 @@ describe('parseQtiItemXml', () => {
   });
 });
 
+describe('source-driven cloze responses', () => {
+  it('resolves distinct and reused response declarations in interaction order', () => {
+    const item = parseQtiItemXml(`<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-cloze" title="Cloze">
+  <qti-response-declaration identifier="RESPONSE_A" cardinality="ordered" base-type="string" />
+  <qti-response-declaration identifier="RESPONSE_B" cardinality="single" base-type="string" />
+  <qti-item-body><p><qti-text-entry-interaction response-identifier="RESPONSE_A" /> / <qti-text-entry-interaction response-identifier="RESPONSE_B" /> / <qti-text-entry-interaction response-identifier="RESPONSE_A" /></p></qti-item-body>
+</qti-assessment-item>`);
+    expect(item.clozeResponseIdentifiers).toEqual(['RESPONSE_A', 'RESPONSE_B', 'RESPONSE_A']);
+    const itemResult = { resultIdentifier: 'item-cloze', response: null, responseVariables: { RESPONSE_A: ['first', 'third'], RESPONSE_B: ['second'] }, rubricOutcomes: {} };
+    expect(resolveItemResponse(item, itemResult)).toEqual(['first', 'second', 'third']);
+  });
+
+  it('keeps legacy ordered RESPONSE fallback behavior', () => {
+    const item = { identifier: 'item-cloze', title: 'Cloze', type: 'cloze' as const, promptHtml: '', choices: [], rubric: [], candidateExplanationHtml: null, clozeResponseIdentifiers: ['RESPONSE_1', 'RESPONSE_2'] };
+    const itemResult = { resultIdentifier: 'item-cloze', response: ['legacy-1', 'legacy-2'], responseVariables: { RESPONSE: ['legacy-1', 'legacy-2'] }, rubricOutcomes: {} };
+    expect(resolveItemResponse(item, itemResult)).toEqual(['legacy-1', 'legacy-2']);
+  });
+});
+
 describe('parseQtiResultsXml', () => {
   it('parses responses, rubric outcomes, and comments', () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -460,6 +481,14 @@ describe('parseQtiResultsXml', () => {
     const result = parseQtiResultsXml(xml, 'results.xml');
     const itemResult = result.itemResults['Q2'];
     expect(itemResult.response).toEqual(['H2O', 'water']);
+  });
+
+  it('preserves all source-driven response variables', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<assessmentResult xmlns="http://www.imsglobal.org/xsd/imsqti_result_v3p0"><context sourcedId="candidate-1"></context><itemResult identifier="function-call-twice" sequenceIndex="1"><responseVariable identifier="RESPONSE_1" cardinality="single" baseType="string"><candidateResponse><value>function</value></candidateResponse></responseVariable><responseVariable identifier="RESPONSE_2" cardinality="single" baseType="string"><candidateResponse><value>goodMorning();</value></candidateResponse></responseVariable><responseVariable identifier="RESPONSE_3" cardinality="single" baseType="string"><candidateResponse><value>goodMorning();</value></candidateResponse></responseVariable></itemResult></assessmentResult>`;
+    const itemResult = parseQtiResultsXml(xml, 'results.xml').itemResults['function-call-twice'];
+    expect(itemResult.response).toBeNull();
+    expect(itemResult.responseVariables).toEqual({ RESPONSE_1: ['function'], RESPONSE_2: ['goodMorning();'], RESPONSE_3: ['goodMorning();'] });
   });
 
   it('drops invalid sequenceIndex values', () => {

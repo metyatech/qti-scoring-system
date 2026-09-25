@@ -19,12 +19,14 @@ export interface QtiItem {
   choices: QtiChoice[];
   rubric: QtiRubricCriterion[];
   candidateExplanationHtml: string | null;
+  clozeResponseIdentifiers?: string[];
 }
 
 export interface QtiItemResult {
   resultIdentifier: string;
   sequenceIndex?: number;
   response: string | string[] | null;
+  responseVariables?: Record<string, string[]>;
   score?: number;
   comment?: string;
   rubricOutcomes: Record<number, boolean>;
@@ -117,6 +119,9 @@ export const parseQtiItemXml = (xml: string): QtiItem => {
     choices: parsed.choices,
     rubric: parsed.rubricCriteria,
     candidateExplanationHtml: parsed.candidateExplanationHtml,
+    clozeResponseIdentifiers: parsed.interactions
+      .filter((interaction) => interaction.type === 'text-entry')
+      .map((interaction) => interaction.id),
   };
 };
 
@@ -132,7 +137,8 @@ export const parseQtiResultsXml = (xml: string, fileName: string): QtiResult => 
   const itemResults: Record<string, QtiItemResult> = {};
   for (const itemResult of raw.itemResults) {
     const resultIdentifier = itemResult.identifier;
-    const responseValues = itemResult.responseVariables['RESPONSE'] ?? [];
+    const responseVariables = itemResult.responseVariables;
+    const responseValues = responseVariables['RESPONSE'] ?? [];
     let response: string | string[] | null = null;
     if (responseValues.length === 1) response = responseValues[0];
     else if (responseValues.length > 1) response = responseValues;
@@ -156,6 +162,7 @@ export const parseQtiResultsXml = (xml: string, fileName: string): QtiResult => 
       resultIdentifier,
       sequenceIndex: itemResult.sequenceIndex,
       response,
+      responseVariables,
       score: scoreValue ? Number(scoreValue) : undefined,
       comment: commentValue ?? undefined,
       rubricOutcomes,
@@ -168,6 +175,38 @@ export const parseQtiResultsXml = (xml: string, fileName: string): QtiResult => 
     candidateName,
     itemResults,
   };
+};
+
+export const resolveItemResponse = (
+  item: QtiItem,
+  itemResult: QtiItemResult | undefined
+): string | string[] | null => {
+  if (!itemResult) return null;
+  if (item.type !== 'cloze') return itemResult.response;
+
+  const responseIdentifiers = item.clozeResponseIdentifiers ?? [];
+  const responseVariables = itemResult.responseVariables;
+  if (responseIdentifiers.length === 0 || !responseVariables) {
+    return itemResult.response;
+  }
+
+  const nextIndexByIdentifier = new Map<string, number>();
+  const orderedValues: string[] = [];
+  for (const identifier of responseIdentifiers) {
+    const values = responseVariables[identifier];
+    const nextIndex = nextIndexByIdentifier.get(identifier) ?? 0;
+    if (!values || nextIndex >= values.length) {
+      const legacyValues = responseVariables['RESPONSE'] ?? [];
+      if (legacyValues.length === 1) return legacyValues[0];
+      if (legacyValues.length > 1) return legacyValues;
+      return itemResult.response;
+    }
+    orderedValues.push(values[nextIndex]);
+    nextIndexByIdentifier.set(identifier, nextIndex + 1);
+  }
+
+  if (orderedValues.length === 1) return orderedValues[0];
+  return orderedValues.length > 1 ? orderedValues : itemResult.response;
 };
 
 export const parseAssessmentTestXml = (xml: string): AssessmentItemRef[] => {

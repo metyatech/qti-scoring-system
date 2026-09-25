@@ -19,6 +19,7 @@ import {
   parseQtiItemXml,
   parseQtiResultsXml,
   remapResultToAssessmentItems,
+  resolveItemResponse,
 } from "@/utils/qtiParsing";
 import { formatResponse } from "@/utils/formatResponse";
 import { getEffectiveRubricOutcomes, getItemMaxScore, getItemScore } from "@/utils/scoring";
@@ -754,7 +755,7 @@ export default function WorkspacePage() {
               const responseText = formatResponse(item, itemResult);
               const displayPromptHtml =
                 item.type === "cloze"
-                  ? applyResponsesToPromptHtml(item.promptHtml, itemResult?.response)
+                  ? applyResponsesToPromptHtml(item.promptHtml, resolveItemResponse(item, itemResult))
                   : item.promptHtml;
               const rubric = item.rubric;
               const comment = itemResult?.comment ?? "";
